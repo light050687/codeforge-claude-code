@@ -23,9 +23,14 @@ class TrailingSlashMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         path = request.scope["path"]
-        # Only add trailing slash for specific collection routes
+
+        # Add trailing slash for specific collection routes
         if path in self.ROUTES_WITH_SLASH:
             request.scope["path"] = path + "/"
+        # Remove trailing slash from all other paths (except root)
+        elif path != "/" and path.endswith("/"):
+            request.scope["path"] = path.rstrip("/")
+
         return await call_next(request)
 
 
