@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 
 interface CodeBlockProps {
   code: string
@@ -7,7 +7,7 @@ interface CodeBlockProps {
   className?: string
 }
 
-export function CodeBlock({
+export const CodeBlock = memo(function CodeBlock({
   code,
   language,
   maxHeight = 'max-h-64',
@@ -46,4 +46,4 @@ export function CodeBlock({
       )}
     </div>
   )
-}
+})

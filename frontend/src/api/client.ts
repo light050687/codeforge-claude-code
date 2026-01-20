@@ -34,10 +34,10 @@ api.interceptors.response.use(
   }
 )
 
-// API functions
+// API functions - NO trailing slashes (backend middleware handles normalization)
 export const searchApi = {
   search: (query: string, params?: Record<string, unknown>) =>
-    api.post('/search/', { query, ...params }),
+    api.post('/search', { query, ...params }),
   suggestions: (q: string) => api.get('/search/suggestions', { params: { q } }),
   byCategory: (category: string, params?: { language?: string; limit?: number; offset?: number; sort?: string }) =>
     api.get('/search/by-category', { params: { category, ...params } }),

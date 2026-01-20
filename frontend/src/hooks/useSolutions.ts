@@ -8,7 +8,9 @@ interface SolutionFilters {
   problem_id?: string
   language?: string
   min_speedup?: number
-  sort_by?: 'votes' | 'speedup' | 'recent'
+  min_memory_reduction?: number
+  badges?: string[]
+  sort_by?: 'votes' | 'speedup' | 'memory' | 'efficiency' | 'recent'
 }
 
 interface UseSolutionsOptions {

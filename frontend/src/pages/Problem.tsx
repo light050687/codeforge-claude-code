@@ -4,10 +4,11 @@ import { motion } from 'framer-motion'
 import { useProblemBySlug } from '../hooks/useProblems'
 import { useSolutions } from '../hooks/useSolutions'
 import { useRunBenchmark, type RunBenchmarkResult } from '../hooks/useBenchmarks'
-import { CATEGORY_META, type Difficulty } from '../types/api'
+import { CATEGORY_META, type Difficulty, type SolutionBadge } from '../types/api'
 import { SolutionCardSkeleton } from '../components/Skeleton'
 import { ErrorState, EmptyState } from '../components/ErrorState'
 import { CodeBlock } from '../components/CodeBlock'
+import { BadgeList, EfficiencyScore } from '../components/Badge'
 
 const difficultyColors: Record<Difficulty, string> = {
   easy: 'bg-accent-success/20 text-accent-success',
@@ -16,7 +17,9 @@ const difficultyColors: Record<Difficulty, string> = {
 }
 
 const sortOptions = [
-  { value: 'speedup', label: 'Speedup' },
+  { value: 'speedup', label: 'Speed' },
+  { value: 'memory', label: 'Memory' },
+  { value: 'efficiency', label: 'Efficiency' },
   { value: 'votes', label: 'Votes' },
   { value: 'recent', label: 'Recent' },
 ]
@@ -75,7 +78,7 @@ function BenchmarkResultsDisplay({ result }: { result: RunBenchmarkResult }) {
 
 export default function Problem() {
   const { problemId: problemSlug } = useParams<{ problemId: string }>()
-  const [sortBy, setSortBy] = useState<'speedup' | 'votes' | 'recent'>('speedup')
+  const [sortBy, setSortBy] = useState<'speedup' | 'memory' | 'efficiency' | 'votes' | 'recent'>('speedup')
   const [benchmarkResults, setBenchmarkResults] = useState<Record<string, RunBenchmarkResult>>({})
   const [runningBenchmarks, setRunningBenchmarks] = useState<Set<string>>(new Set())
 
@@ -244,7 +247,7 @@ export default function Problem() {
             <select
               value={sortBy}
               onChange={(e) =>
-                setSortBy(e.target.value as 'speedup' | 'votes' | 'recent')
+                setSortBy(e.target.value as 'speedup' | 'memory' | 'efficiency' | 'votes' | 'recent')
               }
               className="px-3 py-1 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none"
             >
@@ -280,37 +283,55 @@ export default function Problem() {
                 key={solution.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: Math.min(index * 0.02, 0.25) }}
                 className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-medium text-text-primary">
-                      {solution.title}
-                    </h3>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <h3 className="text-lg font-medium text-text-primary">
+                        {solution.title}
+                      </h3>
+                      {solution.efficiency_score != null && (
+                        <EfficiencyScore score={solution.efficiency_score} size="sm" />
+                      )}
+                    </div>
                     {solution.description && (
                       <p className="text-sm text-text-muted mt-1">
                         {solution.description}
                       </p>
                     )}
+                    {/* Badges */}
+                    {solution.badges && solution.badges.length > 0 && (
+                      <div className="mt-2">
+                        <BadgeList badges={solution.badges as SolutionBadge[]} size="sm" showLabels />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-end gap-2">
                     <span className="px-2 py-1 text-xs font-medium bg-bg-tertiary text-text-secondary rounded">
                       {solution.language}
                     </span>
-                    {solution.speedup && (
-                      <span
-                        className={`px-2 py-1 text-xs font-medium rounded ${
-                          solution.speedup > 100
-                            ? 'bg-accent-success/20 text-accent-success'
-                            : solution.speedup > 10
-                              ? 'bg-amber-500/20 text-amber-400'
-                              : 'bg-bg-tertiary text-text-secondary'
-                        }`}
-                      >
-                        {solution.speedup.toFixed(0)}x faster
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {solution.speedup && (
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded ${
+                            solution.speedup > 100
+                              ? 'bg-accent-success/20 text-accent-success'
+                              : solution.speedup > 10
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-bg-tertiary text-text-secondary'
+                          }`}
+                        >
+                          {solution.speedup.toFixed(0)}x faster
+                        </span>
+                      )}
+                      {solution.memory_reduction && solution.memory_reduction > 1 && (
+                        <span className="px-2 py-1 text-xs font-medium rounded bg-emerald-500/20 text-emerald-400">
+                          {solution.memory_reduction.toFixed(1)}x less memory
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

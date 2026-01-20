@@ -164,7 +164,7 @@ export default function Leaderboard() {
                     key={cat.category}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
+                    transition={{ delay: Math.min(index * 0.02, 0.25) }}
                   >
                     <Link
                       to={`/category/${cat.category}`}
@@ -247,7 +247,7 @@ export default function Leaderboard() {
                           key={author.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.05 }}
+                          transition={{ delay: Math.min(index * 0.02, 0.25) }}
                           className="hover:bg-bg-tertiary/50"
                         >
                           <td className="px-6 py-4 text-text-primary font-medium">
@@ -293,7 +293,7 @@ export default function Leaderboard() {
                           key={solution.id}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.05 }}
+                          transition={{ delay: Math.min(index * 0.02, 0.25) }}
                           className="hover:bg-bg-tertiary/50"
                         >
                           <td className="px-6 py-4 text-text-primary font-medium">

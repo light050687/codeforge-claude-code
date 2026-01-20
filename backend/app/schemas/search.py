@@ -6,7 +6,9 @@ class SearchQuery(BaseModel):
     language: str | None = None
     category: str | None = None
     min_speedup: float | None = None
-    sort: str = Field(default="relevance")  # relevance, speedup, votes, recent
+    min_memory_reduction: float | None = None
+    badges: list[str] | None = None  # Filter by badges
+    sort: str = Field(default="relevance")  # relevance, speedup, memory, efficiency, votes, recent
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
 
@@ -16,7 +18,16 @@ class SearchResultItem(BaseModel):
     title: str
     code_preview: str
     language: str
+
+    # Performance metrics
     speedup: float | None
+    memory_reduction: float | None
+    efficiency_score: float | None
+
+    # Badges
+    badges: list[str] = []
+
+    # Meta
     vote_count: int
     author_username: str
     problem_id: str  # UUID as string

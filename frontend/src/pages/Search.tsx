@@ -5,10 +5,30 @@ import { useSearch } from '../hooks/useSearch'
 import { SearchResultSkeleton } from '../components/Skeleton'
 import { ErrorState, EmptyState } from '../components/ErrorState'
 import { CodeBlock } from '../components/CodeBlock'
-import { CATEGORY_META, type Category } from '../types/api'
+import { BadgeList } from '../components/Badge'
+import { CATEGORY_META, type Category, type SolutionBadge } from '../types/api'
 
 const languages = ['All', 'Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'C++', 'Java']
-const sortOptions = ['Relevance', 'Speedup', 'Votes', 'Recent']
+const sortOptions = [
+  { value: 'relevance', label: 'Relevance' },
+  { value: 'speedup', label: 'Speed' },
+  { value: 'memory', label: 'Memory' },
+  { value: 'efficiency', label: 'Efficiency' },
+  { value: 'votes', label: 'Votes' },
+  { value: 'recent', label: 'Recent' },
+]
+
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+
+  return debouncedValue
+}
 
 export default function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -18,35 +38,38 @@ export default function Search() {
   const [selectedLanguage, setSelectedLanguage] = useState(
     searchParams.get('language') || 'All'
   )
-  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'Relevance')
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'relevance')
   const [category, setCategory] = useState<Category | undefined>(
     (searchParams.get('category') as Category) || undefined
   )
+
+  // Debounce search query by 300ms
+  const debouncedQuery = useDebounce(query, 300)
 
   // Sync state to URL
   useEffect(() => {
     const params = new URLSearchParams()
     if (query) params.set('q', query)
     if (selectedLanguage !== 'All') params.set('language', selectedLanguage)
-    if (sortBy !== 'Relevance') params.set('sort', sortBy)
+    if (sortBy !== 'relevance') params.set('sort', sortBy)
     if (category) params.set('category', category)
     setSearchParams(params, { replace: true })
   }, [query, selectedLanguage, sortBy, category, setSearchParams])
 
   // Determine if we should search - either have a query or a category filter
-  const shouldSearch = query.trim() || category
+  const shouldSearch = debouncedQuery.trim() || category
 
-  // Search query
+  // Search query - uses debounced query to reduce API calls
   const { data, isLoading, error, refetch } = useSearch(
     shouldSearch
       ? {
-          query: query || '*',  // Use wildcard if no query but have category
+          query: debouncedQuery || '*',  // Use wildcard if no query but have category
           language:
             selectedLanguage !== 'All' ? selectedLanguage.toLowerCase() : undefined,
           category,
           limit: 20,
           offset: 0,
-          sort: sortBy.toLowerCase() as 'relevance' | 'speedup' | 'votes' | 'recent',
+          sort: sortBy as 'relevance' | 'speedup' | 'memory' | 'efficiency' | 'votes' | 'recent',
         }
       : null
   )
@@ -132,8 +155,8 @@ export default function Search() {
             className="px-3 py-1 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none"
           >
             {sortOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -167,7 +190,7 @@ export default function Search() {
               key={result.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ delay: Math.min(index * 0.02, 0.3) }}
               className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
@@ -202,8 +225,20 @@ export default function Search() {
                       {result.speedup.toFixed(0)}x faster
                     </span>
                   )}
+                  {result.memory_reduction && result.memory_reduction > 1 && (
+                    <span className="px-2 py-1 text-xs font-medium rounded bg-emerald-500/20 text-emerald-400">
+                      {result.memory_reduction.toFixed(1)}x less memory
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* Badges */}
+              {result.badges && result.badges.length > 0 && (
+                <div className="mb-3">
+                  <BadgeList badges={result.badges as SolutionBadge[]} size="sm" showLabels />
+                </div>
+              )}
 
               {/* Code Preview */}
               <CodeBlock

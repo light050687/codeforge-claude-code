@@ -194,7 +194,7 @@ export default function Category() {
               key={group.problem_id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: groupIndex * 0.05 }}
+              transition={{ delay: Math.min(groupIndex * 0.02, 0.25) }}
               className="bg-bg-secondary border border-bg-tertiary rounded-xl overflow-hidden"
             >
               {/* Problem Header */}
@@ -232,7 +232,7 @@ export default function Category() {
                       key={solution.id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: solutionIndex * 0.03 }}
+                      transition={{ delay: Math.min(solutionIndex * 0.01, 0.15) }}
                       className="px-6 py-4 hover:bg-bg-tertiary/30 transition-colors"
                     >
                       <div className="flex items-start justify-between mb-3">

@@ -8,16 +8,17 @@ import {
   CategorySkeleton,
   SolutionCardSkeleton,
 } from '../components/Skeleton'
-import { CATEGORY_META, type Category } from '../types/api'
+import { BadgeList } from '../components/Badge'
+import { CATEGORY_META, type Category, type SolutionBadge } from '../types/api'
 
 export default function Explore() {
   // Fetch data
   const { data: trendingSolutions, isLoading: loadingTrending } =
     useTrendingSolutions(3)
   const { data: problemsData, isLoading: loadingProblems } = useProblems({
-    size: 100,
+    size: 20,
   })
-  const { data: usersData, isLoading: loadingUsers } = useTopUsers(100)
+  const { data: usersData, isLoading: loadingUsers } = useTopUsers(20)
   const { data: totalSolutions, isLoading: loadingSolutions } = useSolutionsCount()
 
   // Compute stats from fetched data
@@ -107,7 +108,7 @@ export default function Explore() {
               key={stat.label}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 + index * 0.1 }}
+              transition={{ delay: Math.min(0.1 + index * 0.02, 0.3) }}
               className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 text-center"
             >
               <div className="text-3xl font-bold text-text-primary">
@@ -133,7 +134,7 @@ export default function Explore() {
                   key={category.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + index * 0.05 }}
+                  transition={{ delay: Math.min(0.1 + index * 0.02, 0.3) }}
                 >
                   <Link
                     to={`/category/${category.id}`}
@@ -170,19 +171,26 @@ export default function Explore() {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 + index * 0.1 }}
+                    transition={{ delay: Math.min(0.1 + index * 0.02, 0.3) }}
                     className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer h-full"
                   >
                   <div className="flex items-center justify-between mb-3">
-                    {solution.speedup ? (
-                      <span className="px-2 py-1 text-xs font-medium bg-accent-success/20 text-accent-success rounded">
-                        {solution.speedup.toFixed(0)}x faster
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 text-xs font-medium bg-bg-tertiary text-text-muted rounded">
-                        -
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {solution.speedup ? (
+                        <span className="px-2 py-1 text-xs font-medium bg-accent-success/20 text-accent-success rounded">
+                          {solution.speedup.toFixed(0)}x faster
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-medium bg-bg-tertiary text-text-muted rounded">
+                          -
+                        </span>
+                      )}
+                      {solution.memory_reduction && solution.memory_reduction > 1 && (
+                        <span className="px-2 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-400 rounded">
+                          {solution.memory_reduction.toFixed(1)}x mem
+                        </span>
+                      )}
+                    </div>
                     <span className="text-sm text-text-muted">
                       {solution.language}
                     </span>
@@ -190,6 +198,12 @@ export default function Explore() {
                   <h3 className="text-lg font-medium text-text-primary mb-2">
                     {solution.title}
                   </h3>
+                  {/* Badges */}
+                  {solution.badges && solution.badges.length > 0 && (
+                    <div className="mb-3">
+                      <BadgeList badges={solution.badges as SolutionBadge[]} size="sm" maxVisible={3} />
+                    </div>
+                  )}
                   <p className="text-sm text-text-secondary line-clamp-2 mb-4">
                     {solution.complexity_time && `${solution.complexity_time} time`}
                     {solution.complexity_space &&

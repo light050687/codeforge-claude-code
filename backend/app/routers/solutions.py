@@ -131,7 +131,9 @@ async def list_solutions(
     problem_id: UUID | None = None,
     language: str | None = None,
     min_speedup: float | None = None,
-    sort_by: str = Query("votes", regex="^(votes|speedup|recent)$"),
+    min_memory_reduction: float | None = None,
+    badges: str | None = None,  # Comma-separated badges
+    sort_by: str = Query("votes", regex="^(votes|speedup|memory|efficiency|recent)$"),
     db: AsyncSession = Depends(get_db),
 ):
     """List solutions with pagination and filters."""
@@ -143,12 +145,22 @@ async def list_solutions(
         query = query.where(Solution.language == language)
     if min_speedup:
         query = query.where(Solution.speedup >= min_speedup)
+    if min_memory_reduction:
+        query = query.where(Solution.memory_reduction >= min_memory_reduction)
+    if badges:
+        # Filter by any of the specified badges
+        badge_list = [b.strip() for b in badges.split(",")]
+        query = query.where(Solution.badges.overlap(badge_list))
 
     # Sorting
     if sort_by == "votes":
         query = query.order_by(Solution.vote_count.desc())
     elif sort_by == "speedup":
         query = query.order_by(Solution.speedup.desc().nullslast())
+    elif sort_by == "memory":
+        query = query.order_by(Solution.memory_reduction.desc().nullslast())
+    elif sort_by == "efficiency":
+        query = query.order_by(Solution.efficiency_score.desc().nullslast())
     else:  # recent
         query = query.order_by(Solution.created_at.desc())
 
@@ -160,6 +172,11 @@ async def list_solutions(
         count_query = count_query.where(Solution.language == language)
     if min_speedup:
         count_query = count_query.where(Solution.speedup >= min_speedup)
+    if min_memory_reduction:
+        count_query = count_query.where(Solution.memory_reduction >= min_memory_reduction)
+    if badges:
+        badge_list = [b.strip() for b in badges.split(",")]
+        count_query = count_query.where(Solution.badges.overlap(badge_list))
     total = await db.scalar(count_query) or 0
 
     # Paginate

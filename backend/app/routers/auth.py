@@ -125,8 +125,7 @@ async def github_callback(
 
         # Redirect to frontend with token
         # Frontend will extract token from URL and store it
-        frontend_url = settings.cors_origins[0] if settings.cors_origins else "http://localhost:5173"
-        redirect_url = f"{frontend_url}/auth/callback?token={access_token}"
+        redirect_url = f"{settings.frontend_url}/auth/callback?token={access_token}"
 
         return RedirectResponse(url=redirect_url)
 

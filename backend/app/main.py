@@ -1,10 +1,33 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from app.config import get_settings
 from app.routers import auth, problems, solutions, search, benchmarks, users, playground
 
 settings = get_settings()
+
+
+# Middleware to normalize trailing slashes
+# Routes are defined with "/" for list endpoints, without for specific resources
+class TrailingSlashMiddleware(BaseHTTPMiddleware):
+    # Routes that should have trailing slash (collection endpoints)
+    ROUTES_WITH_SLASH = {
+        "/api/v1/solutions",
+        "/api/v1/problems",
+        "/api/v1/users",
+        "/api/v1/search",
+        "/api/v1/benchmarks",
+    }
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.scope["path"]
+        # Only add trailing slash for specific collection routes
+        if path in self.ROUTES_WITH_SLASH:
+            request.scope["path"] = path + "/"
+        return await call_next(request)
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -12,6 +35,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    redirect_slashes=False,  # Disable automatic 307 redirects for trailing slashes
 )
 
 # CORS
@@ -22,6 +46,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Handle trailing slashes - normalize URLs
+app.add_middleware(TrailingSlashMiddleware)
 
 # Routers
 app.include_router(auth.router, prefix=f"{settings.api_prefix}/auth", tags=["auth"])

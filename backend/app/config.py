@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
     github_redirect_uri: str = "http://localhost:8000/api/v1/auth/github/callback"
 
+    # Frontend URL for OAuth redirect
+    frontend_url: str = "http://localhost:5173"
+
     # Embeddings
     embedding_model: str = "microsoft/codebert-base"
     embedding_dim: int = 768

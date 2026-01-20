@@ -15,24 +15,68 @@ class Difficulty(str, enum.Enum):
 
 
 class Category(str, enum.Enum):
+    # Core algorithms
     SORTING = "sorting"
     SEARCHING = "searching"
     GRAPHS = "graphs"
+    TREES = "trees"
+    DYNAMIC_PROGRAMMING = "dp"
+    # Data handling
     STRINGS = "strings"
-    MATH = "math"
+    ARRAYS = "arrays"
     DATA_STRUCTURES = "data_structures"
+    # Math & Science
+    MATH = "math"
+    GEOMETRY = "geometry"
+    STATISTICS = "statistics"
+    # System & Performance
     IO_OPTIMIZATION = "io"
     MEMORY_MANAGEMENT = "memory"
+    CONCURRENCY = "concurrency"
+    NETWORKING = "networking"
+    # Specialized
     CRYPTOGRAPHY = "crypto"
     MACHINE_LEARNING = "ml"
+    IMAGE_PROCESSING = "image"
+    DATA_PROCESSING = "data_processing"
+    DATETIME = "datetime"
+    FINANCE = "finance"
+    VALIDATION = "validation"
+    PARSING = "parsing"
+
+
+class OptimizationPattern(str, enum.Enum):
+    """Patterns used to achieve optimization"""
+    MEMOIZATION = "memoization"
+    DYNAMIC_PROGRAMMING = "dp"
+    DIVIDE_CONQUER = "divide_conquer"
+    EARLY_EXIT = "early_exit"
+    BATCHING = "batching"
+    LAZY_EVALUATION = "lazy"
+    PARALLELIZATION = "parallel"
+    VECTORIZATION = "vectorized"
+    CACHING = "caching"
+    PRECOMPUTATION = "precompute"
+    STREAMING = "streaming"
+    POOLING = "pooling"
+    COMPRESSION = "compression"
+    INDEX_OPTIMIZATION = "indexing"
 
 
 # PostgreSQL ENUM types
 difficulty_level = ENUM('easy', 'medium', 'hard', name='difficulty_level', create_type=False)
 category_type = ENUM(
-    'sorting', 'searching', 'graphs', 'strings', 'math',
-    'data_structures', 'io', 'memory', 'crypto', 'ml',
+    'sorting', 'searching', 'graphs', 'trees', 'dp', 'strings', 'arrays',
+    'data_structures', 'math', 'geometry', 'statistics', 'io', 'memory',
+    'concurrency', 'networking', 'crypto', 'ml', 'image', 'data_processing',
+    'datetime', 'finance', 'validation', 'parsing',
     name='category_type', create_type=False
+)
+optimization_pattern_type = ENUM(
+    'memoization', 'dp', 'divide_conquer', 'early_exit', 'batching',
+    'lazy', 'parallel', 'vectorized', 'caching', 'precompute',
+    'streaming', 'pooling', 'compression', 'indexing',
+    name='optimization_pattern_type', create_type=False
 )
 
 
