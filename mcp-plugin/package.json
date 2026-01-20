@@ -1,0 +1,38 @@
+{
+  "name": "@codeforge/mcp-plugin",
+  "version": "0.1.0",
+  "description": "CodeForge MCP Plugin for Claude Code - Semantic code search integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "codeforge-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "axios": "^1.7.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "tsx": "^4.19.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "code-search",
+    "optimization"
+  ],
+  "author": "",
+  "license": "MIT"
+}

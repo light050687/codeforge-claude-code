@@ -1,0 +1,46 @@
+# Node.js
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+coverage/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Redis dump
+dump.rdb
