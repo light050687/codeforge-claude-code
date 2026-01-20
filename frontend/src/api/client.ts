@@ -37,38 +37,38 @@ export const searchApi = {
 
 export const problemsApi = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  list: (params?: any) => api.get('/problems', { params }),
-  get: (id: string) => api.get(`/problems/${id}`),
-  getBySlug: (slug: string) => api.get(`/problems/slug/${slug}`),
+  list: (params?: any) => api.get('/problems/', { params }),
+  get: (id: string) => api.get(`/problems/${id}/`),
+  getBySlug: (slug: string) => api.get(`/problems/slug/${slug}/`),
 }
 
 export const solutionsApi = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  list: (params?: any) => api.get('/solutions', { params }),
-  get: (id: string) => api.get(`/solutions/${id}`),
-  create: (data: Record<string, unknown>) => api.post('/solutions', data),
+  list: (params?: any) => api.get('/solutions/', { params }),
+  get: (id: string) => api.get(`/solutions/${id}/`),
+  create: (data: Record<string, unknown>) => api.post('/solutions/', data),
   vote: (id: string, value: number) =>
-    api.post(`/solutions/${id}/vote`, null, { params: { value } }),
+    api.post(`/solutions/${id}/vote/`, null, { params: { value } }),
 }
 
 export const usersApi = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  list: (params?: any) => api.get('/users', { params }),
-  get: (id: string) => api.get(`/users/${id}`),
-  getByUsername: (username: string) => api.get(`/users/username/${username}`),
-  topUsers: (limit?: number) => api.get('/users/leaderboard/top', { params: { limit } }),
+  list: (params?: any) => api.get('/users/', { params }),
+  get: (id: string) => api.get(`/users/${id}/`),
+  getByUsername: (username: string) => api.get(`/users/username/${username}/`),
+  topUsers: (limit?: number) => api.get('/users/leaderboard/top/', { params: { limit } }),
 }
 
 export const benchmarksApi = {
   getSolutionBenchmarks: (solutionId: string) =>
-    api.get(`/benchmarks/solution/${solutionId}`),
+    api.get(`/benchmarks/solution/${solutionId}/`),
   compare: (solutionIds: string[]) =>
-    api.get('/benchmarks/compare', { params: { solution_ids: solutionIds.join(',') } }),
+    api.get('/benchmarks/compare/', { params: { solution_ids: solutionIds.join(',') } }),
 }
 
 export const playgroundApi = {
   analyze: (code: string, language: string) =>
-    api.post('/playground/analyze', { code, language }),
+    api.post('/playground/analyze/', { code, language }),
 }
 
 export default api

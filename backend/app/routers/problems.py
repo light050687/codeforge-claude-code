@@ -27,8 +27,12 @@ async def list_problems(
     if difficulty:
         query = query.where(Problem.difficulty == difficulty)
 
-    # Count total
-    count_query = select(func.count()).select_from(query.subquery())
+    # Count total - build separate count query with same filters
+    count_query = select(func.count()).select_from(Problem)
+    if category:
+        count_query = count_query.where(Problem.category == category)
+    if difficulty:
+        count_query = count_query.where(Problem.difficulty == difficulty)
     total = await db.scalar(count_query) or 0
 
     # Paginate
