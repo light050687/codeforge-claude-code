@@ -4,6 +4,7 @@ Run: docker exec codeforge-backend python seed_more_duplicates.py
 """
 
 import asyncio
+import random
 import sys
 sys.path.insert(0, '/app')
 
@@ -24,7 +25,8 @@ MORE_SOLUTIONS = [
         "complexity_time": "O(n²)",
         "complexity_space": "O(n)",
         "tags": ["one-liner", "comprehension", "simple"],
-        "speedup": 1.2,  # Slower than baseline but more readable
+        "speedup": 1.2,
+        "author": "codewitch",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -42,6 +44,7 @@ def find_duplicates(arr):
         "complexity_space": "O(n)",
         "tags": ["pandas", "data-science", "analytics"],
         "speedup": 89.0,
+        "author": "datasmith",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -59,6 +62,7 @@ def find_duplicates(arr):
         "complexity_space": "O(n)",
         "tags": ["numpy", "vectorized", "numeric"],
         "speedup": 312.0,
+        "author": "rustacean42",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -83,6 +87,7 @@ def find_duplicates(arr):
         "complexity_space": "O(1)",
         "tags": ["sorting", "memory-efficient", "in-place"],
         "speedup": 98.0,
+        "author": "bytehunter",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -101,6 +106,7 @@ def find_duplicates(arr):
         "complexity_space": "O(n)",
         "tags": ["defaultdict", "grouping", "positions"],
         "speedup": 138.0,
+        "author": "py_ninja",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -124,6 +130,7 @@ def find_duplicates(arr):
         "complexity_space": "O(1)",
         "tags": ["bitwise", "xor", "constant-space", "single-duplicate"],
         "speedup": 203.0,
+        "author": "algo_master",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -152,6 +159,7 @@ def find_duplicates(arr):
         "complexity_space": "O(1)",
         "tags": ["floyd", "cycle-detection", "constant-space", "interview"],
         "speedup": 178.0,
+        "author": "algo_master",
     },
     {
         "problem_title": "Find Duplicate Elements",
@@ -177,6 +185,7 @@ def find_duplicates(arr):
         "complexity_space": "O(1)",
         "tags": ["binary-search", "constant-space", "pigeonhole"],
         "speedup": 67.0,
+        "author": "sarah_dev",
     },
 ]
 
@@ -184,16 +193,15 @@ def find_duplicates(arr):
 async def seed_more():
     """Add more duplicate detection solutions."""
     async with async_session() as db:
-        # Get user
-        result = await db.execute(
-            text("SELECT id FROM users WHERE username = 'codeforge_bot'")
-        )
-        user = result.fetchone()
-        if not user:
-            print("User not found! Run seed_data.py first.")
+        # Get all users
+        result = await db.execute(text("SELECT id, username FROM users"))
+        users = {row[1]: row[0] for row in result.fetchall()}
+
+        if not users:
+            print("No users found! Run seed_data.py first.")
             return
 
-        user_id = user[0]
+        print(f"Found {len(users)} users: {list(users.keys())}")
 
         # Get problem
         result = await db.execute(
@@ -217,10 +225,21 @@ async def seed_more():
                 print(f"Skipping (exists): {sol['title']}")
                 continue
 
+            # Get author ID
+            author_username = sol.get("author")
+            author_id = users.get(author_username)
+            if not author_id:
+                # Pick random user
+                author_id = random.choice(list(users.values()))
+                author_username = "random"
+
             # Generate embedding
             print(f"Generating embedding for: {sol['title']}")
             embedding_text = f"{sol['title']} {sol['description']} {sol['code']}"
             embedding = await get_embedding(embedding_text)
+
+            # Random vote count for realism
+            vote_count = random.randint(10, 200)
 
             # Insert
             await db.execute(
@@ -234,7 +253,7 @@ async def seed_more():
                 """),
                 {
                     "problem_id": problem_id,
-                    "author_id": user_id,
+                    "author_id": author_id,
                     "title": sol["title"],
                     "description": sol["description"],
                     "code": sol["code"],
@@ -244,10 +263,10 @@ async def seed_more():
                     "tags": sol["tags"],
                     "embedding": str(embedding),
                     "speedup": sol["speedup"],
-                    "vote_count": 0,
+                    "vote_count": vote_count,
                 }
             )
-            print(f"✓ Added: {sol['title']} ({sol['speedup']}x)")
+            print(f"✓ Added: {sol['title']} ({sol['speedup']}x) by @{author_username}")
             added += 1
 
         await db.commit()

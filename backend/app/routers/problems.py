@@ -1,3 +1,4 @@
+import re
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -7,6 +8,15 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.models.problem import Problem
 from app.schemas.problem import ProblemCreate, ProblemResponse, ProblemList
+
+
+def generate_slug(title: str) -> str:
+    """Generate URL-friendly slug from title."""
+    slug = title.lower()
+    slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+    slug = re.sub(r'[\s_]+', '-', slug)
+    slug = re.sub(r'-+', '-', slug)
+    return slug.strip('-')
 
 router = APIRouter()
 
@@ -43,6 +53,18 @@ async def list_problems(
     return ProblemList(items=problems, total=total, page=page, size=size)
 
 
+@router.get("/slug/{slug}", response_model=ProblemResponse)
+async def get_problem_by_slug(slug: str, db: AsyncSession = Depends(get_db)):
+    """Get a specific problem by slug."""
+    result = await db.execute(select(Problem).where(Problem.slug == slug))
+    problem = result.scalar_one_or_none()
+
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    return problem
+
+
 @router.get("/{problem_id}", response_model=ProblemResponse)
 async def get_problem(problem_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get a specific problem by ID."""
@@ -61,8 +83,17 @@ async def create_problem(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new problem (admin only)."""
+    # Generate slug from title if not provided
+    slug = problem.slug or generate_slug(problem.title)
+
+    # Check if slug already exists
+    existing = await db.execute(select(Problem).where(Problem.slug == slug))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Problem with this slug already exists")
+
     db_problem = Problem(
         title=problem.title,
+        slug=slug,
         description=problem.description,
         category=problem.category,
         difficulty=problem.difficulty,

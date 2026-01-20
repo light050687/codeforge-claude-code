@@ -136,7 +136,7 @@ export default function Explore() {
                   transition={{ delay: 0.4 + index * 0.05 }}
                 >
                   <Link
-                    to={`/search?category=${category.id}`}
+                    to={`/category/${category.id}`}
                     className="flex flex-col items-center p-6 bg-bg-secondary border border-bg-tertiary rounded-xl hover:border-accent-primary/50 transition-colors group"
                   >
                     <span className="text-3xl mb-2">{category.icon}</span>
@@ -163,13 +163,16 @@ export default function Explore() {
                 <SolutionCardSkeleton key={i} />
               ))
             : trendingSolutions?.map((solution, index) => (
-                <motion.div
+                <Link
                   key={solution.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5 + index * 0.1 }}
-                  className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer"
+                  to={`/problem/${solution.problem_id}`}
                 >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 + index * 0.1 }}
+                    className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer h-full"
+                  >
                   <div className="flex items-center justify-between mb-3">
                     {solution.speedup ? (
                       <span className="px-2 py-1 text-xs font-medium bg-accent-success/20 text-accent-success rounded">
@@ -203,7 +206,8 @@ export default function Explore() {
                       ↑ {solution.vote_count} votes
                     </span>
                   </div>
-                </motion.div>
+                  </motion.div>
+                </Link>
               ))}
         </div>
       </section>

@@ -36,6 +36,7 @@ CREATE TABLE users (
 CREATE TABLE problems (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
     category category_type NOT NULL,
     difficulty difficulty_level DEFAULT 'medium',
@@ -104,6 +105,8 @@ CREATE INDEX idx_solutions_speedup ON solutions(speedup DESC NULLS LAST);
 CREATE INDEX idx_benchmarks_solution ON benchmarks(solution_id);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_score ON users(score DESC);
+CREATE INDEX idx_problems_slug ON problems(slug);
+CREATE INDEX idx_problems_category ON problems(category);
 
 -- Trigger to update search_vector
 CREATE OR REPLACE FUNCTION update_search_vector()
@@ -144,8 +147,9 @@ CREATE TRIGGER update_solutions_timestamp
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Insert seed data (sample problem and baseline)
-INSERT INTO problems (title, description, category, difficulty, baseline_code, baseline_language, baseline_complexity_time, baseline_complexity_space) VALUES
-('Find Duplicate Elements', 
+INSERT INTO problems (title, slug, description, category, difficulty, baseline_code, baseline_language, baseline_complexity_time, baseline_complexity_space) VALUES
+('Find Duplicate Elements',
+ 'find-duplicate-elements',
  'Given an array of integers, return a list of all elements that appear more than once.',
  'searching',
  'easy',
@@ -155,6 +159,7 @@ INSERT INTO problems (title, description, category, difficulty, baseline_code, b
  'O(n)'
 ),
 ('Sort Large Array',
+ 'sort-large-array',
  'Sort an array of integers efficiently.',
  'sorting',
  'medium',
@@ -164,6 +169,7 @@ INSERT INTO problems (title, description, category, difficulty, baseline_code, b
  'O(1)'
 ),
 ('Find Shortest Path',
+ 'find-shortest-path',
  'Find the shortest path between two nodes in a weighted graph.',
  'graphs',
  'hard',

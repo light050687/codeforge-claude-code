@@ -13,6 +13,7 @@ class ProblemBase(BaseModel):
 
 
 class ProblemCreate(ProblemBase):
+    slug: str | None = None  # Auto-generate from title if not provided
     test_cases: str | None = None
     baseline_complexity_time: str | None = None
     baseline_complexity_space: str | None = None
@@ -22,6 +23,7 @@ class ProblemResponse(ProblemBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    slug: str
     baseline_complexity_time: str | None = None
     baseline_complexity_space: str | None = None
     created_at: datetime

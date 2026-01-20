@@ -90,9 +90,10 @@ export interface SearchResultItem {
   speedup: number | null
   vote_count: number
   author_username: string
+  problem_id: string
   problem_title: string
   problem_category: string
-  similarity_score: number
+  similarity_score: number | null
 }
 
 export interface SearchResult {
@@ -102,12 +103,13 @@ export interface SearchResult {
 }
 
 export interface SearchParams {
-  query: string
+  query?: string
   language?: string
   category?: Category
   min_speedup?: number
   limit?: number
   offset?: number
+  sort?: 'relevance' | 'speedup' | 'votes' | 'recent'
 }
 
 // Benchmark types

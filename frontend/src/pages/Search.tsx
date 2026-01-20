@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import { useSearch } from '../hooks/useSearch'
 import { SearchResultSkeleton } from '../components/Skeleton'
 import { ErrorState, EmptyState } from '../components/ErrorState'
-import type { Category } from '../types/api'
+import { CodeBlock } from '../components/CodeBlock'
+import { CATEGORY_META, type Category } from '../types/api'
 
 const languages = ['All', 'Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'C++', 'Java']
 const sortOptions = ['Relevance', 'Speedup', 'Votes', 'Recent']
@@ -18,7 +19,7 @@ export default function Search() {
     searchParams.get('language') || 'All'
   )
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'Relevance')
-  const [category] = useState<Category | undefined>(
+  const [category, setCategory] = useState<Category | undefined>(
     (searchParams.get('category') as Category) || undefined
   )
 
@@ -32,16 +33,20 @@ export default function Search() {
     setSearchParams(params, { replace: true })
   }, [query, selectedLanguage, sortBy, category, setSearchParams])
 
+  // Determine if we should search - either have a query or a category filter
+  const shouldSearch = query.trim() || category
+
   // Search query
   const { data, isLoading, error, refetch } = useSearch(
-    query
+    shouldSearch
       ? {
-          query,
+          query: query || '*',  // Use wildcard if no query but have category
           language:
             selectedLanguage !== 'All' ? selectedLanguage.toLowerCase() : undefined,
           category,
           limit: 20,
           offset: 0,
+          sort: sortBy.toLowerCase() as 'relevance' | 'speedup' | 'votes' | 'recent',
         }
       : null
   )
@@ -80,6 +85,24 @@ export default function Search() {
           Search
         </button>
       </div>
+
+      {/* Active Category Badge */}
+      {category && (
+        <div className="flex items-center gap-2">
+          <span className="text-text-muted">Category:</span>
+          <span className="inline-flex items-center gap-2 px-3 py-1 bg-accent-primary/20 text-accent-primary rounded-lg">
+            <span>{CATEGORY_META[category]?.icon}</span>
+            <span>{CATEGORY_META[category]?.name || category}</span>
+            <button
+              onClick={() => setCategory(undefined)}
+              className="hover:text-white transition-colors"
+              title="Clear category filter"
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center">
@@ -131,7 +154,7 @@ export default function Search() {
             message="Failed to load search results. Please try again."
             onRetry={() => refetch()}
           />
-        ) : !query ? (
+        ) : !shouldSearch ? (
           <EmptyState
             message="Enter a search query to find optimized code"
             icon="🔍"
@@ -145,7 +168,7 @@ export default function Search() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer"
+              className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -153,7 +176,13 @@ export default function Search() {
                     {result.title}
                   </h3>
                   <p className="text-sm text-text-muted">
-                    Problem: {result.problem_title}
+                    Problem:{' '}
+                    <Link
+                      to={`/problem/${result.problem_id}`}
+                      className="text-accent-primary hover:underline"
+                    >
+                      {result.problem_title}
+                    </Link>
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -177,9 +206,12 @@ export default function Search() {
               </div>
 
               {/* Code Preview */}
-              <pre className="bg-bg-primary rounded-lg p-4 text-sm font-mono text-text-secondary overflow-x-auto mb-3">
-                {result.code_preview}
-              </pre>
+              <CodeBlock
+                code={result.code_preview}
+                language={result.language}
+                maxHeight="max-h-48"
+                className="mb-3"
+              />
 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-text-muted">by @{result.author_username}</span>

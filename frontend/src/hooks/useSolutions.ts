@@ -11,13 +11,22 @@ interface SolutionFilters {
   sort_by?: 'votes' | 'speedup' | 'recent'
 }
 
-export function useSolutions(filters: SolutionFilters = {}) {
+interface UseSolutionsOptions {
+  enabled?: boolean
+}
+
+export function useSolutions(filters: SolutionFilters = {}, options: UseSolutionsOptions = {}) {
+  // If problem_id is provided in filters, wait for it to be defined
+  const shouldEnable = options.enabled !== false &&
+    (filters.problem_id === undefined || filters.problem_id !== undefined)
+
   return useQuery<SolutionList>({
     queryKey: ['solutions', filters],
     queryFn: async () => {
       const response = await solutionsApi.list(filters)
       return response.data
     },
+    enabled: shouldEnable,
   })
 }
 
@@ -82,6 +91,25 @@ export function useSolutionsCount() {
     queryFn: async () => {
       const response = await solutionsApi.list({ size: 1 })
       return response.data.total
+    },
+  })
+}
+
+// Category stats for leaderboard
+export interface CategoryStats {
+  category: string
+  solutions_count: number
+  avg_speedup: number
+  max_speedup: number
+  total_votes: number
+}
+
+export function useCategoryStats() {
+  return useQuery<CategoryStats[]>({
+    queryKey: ['solutions', 'categoryStats'],
+    queryFn: async () => {
+      const response = await solutionsApi.categoryStats()
+      return response.data
     },
   })
 }

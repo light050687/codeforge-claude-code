@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useAnalyzeCode } from '../hooks/usePlayground'
 import { PlaygroundResultSkeleton } from '../components/Skeleton'
 import { ErrorState } from '../components/ErrorState'
+import { CodeBlock } from '../components/CodeBlock'
 
 const languages = ['Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'C++', 'Java']
 
@@ -92,7 +93,11 @@ export default function Playground() {
             <PlaygroundResultSkeleton />
           ) : error ? (
             <ErrorState
-              message="Failed to analyze code. Please try again."
+              message={
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to analyze code. Please try again.'
+              }
               onRetry={handleAnalyze}
             />
           ) : result ? (
@@ -115,9 +120,12 @@ export default function Playground() {
               </div>
 
               {/* Optimized Code */}
-              <pre className="p-4 bg-bg-secondary border border-bg-tertiary rounded-xl text-text-primary font-mono text-sm overflow-x-auto h-48">
-                {result.optimized_code}
-              </pre>
+              <CodeBlock
+                code={result.optimized_code}
+                language={language.toLowerCase()}
+                maxHeight="h-48"
+                className="border border-bg-tertiary rounded-xl"
+              />
 
               {/* Suggestions */}
               <div className="p-4 bg-bg-secondary border border-bg-tertiary rounded-xl">

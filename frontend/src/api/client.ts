@@ -24,7 +24,13 @@ api.interceptors.response.use(
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
-    return Promise.reject(error)
+    // Extract error message from FastAPI response
+    const message =
+      error.response?.data?.detail ||
+      error.response?.data?.message ||
+      error.message ||
+      'An error occurred'
+    return Promise.reject(new Error(message))
   }
 )
 
@@ -32,43 +38,48 @@ api.interceptors.response.use(
 export const searchApi = {
   search: (query: string, params?: Record<string, unknown>) =>
     api.post('/search/', { query, ...params }),
-  suggestions: (q: string) => api.get('/search/suggestions/', { params: { q } }),
+  suggestions: (q: string) => api.get('/search/suggestions', { params: { q } }),
+  byCategory: (category: string, params?: { language?: string; limit?: number; offset?: number; sort?: string }) =>
+    api.get('/search/by-category', { params: { category, ...params } }),
 }
 
 export const problemsApi = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  list: (params?: any) => api.get('/problems/', { params }),
-  get: (id: string) => api.get(`/problems/${id}/`),
-  getBySlug: (slug: string) => api.get(`/problems/slug/${slug}/`),
+  list: (params?: any) => api.get('/problems', { params }),
+  get: (id: string) => api.get(`/problems/${id}`),
+  getBySlug: (slug: string) => api.get(`/problems/slug/${slug}`),
 }
 
 export const solutionsApi = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  list: (params?: any) => api.get('/solutions/', { params }),
-  get: (id: string) => api.get(`/solutions/${id}/`),
-  create: (data: Record<string, unknown>) => api.post('/solutions/', data),
+  list: (params?: any) => api.get('/solutions', { params }),
+  get: (id: string) => api.get(`/solutions/${id}`),
+  create: (data: Record<string, unknown>) => api.post('/solutions', data),
   vote: (id: string, value: number) =>
-    api.post(`/solutions/${id}/vote/`, null, { params: { value } }),
+    api.post(`/solutions/${id}/vote`, null, { params: { value } }),
+  categoryStats: () => api.get('/solutions/stats/by-category'),
 }
 
 export const usersApi = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  list: (params?: any) => api.get('/users/', { params }),
-  get: (id: string) => api.get(`/users/${id}/`),
-  getByUsername: (username: string) => api.get(`/users/username/${username}/`),
-  topUsers: (limit?: number) => api.get('/users/leaderboard/top/', { params: { limit } }),
+  list: (params?: any) => api.get('/users', { params }),
+  get: (id: string) => api.get(`/users/${id}`),
+  getByUsername: (username: string) => api.get(`/users/username/${username}`),
+  topUsers: (limit?: number) => api.get('/users/leaderboard/top', { params: { limit } }),
 }
 
 export const benchmarksApi = {
   getSolutionBenchmarks: (solutionId: string) =>
-    api.get(`/benchmarks/solution/${solutionId}/`),
+    api.get(`/benchmarks/solution/${solutionId}`),
   compare: (solutionIds: string[]) =>
-    api.get('/benchmarks/compare/', { params: { solution_ids: solutionIds.join(',') } }),
+    api.get('/benchmarks/compare', { params: { solution_ids: solutionIds.join(',') } }),
+  run: (solutionId: string, inputSizes?: number[]) =>
+    api.post('/benchmarks/run', { solution_id: solutionId, input_sizes: inputSizes }),
 }
 
 export const playgroundApi = {
   analyze: (code: string, language: string) =>
-    api.post('/playground/analyze/', { code, language }),
+    api.post('/playground/analyze', { code, language }),
 }
 
 export default api

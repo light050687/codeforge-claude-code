@@ -1,8 +1,10 @@
+import re
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import joinedload
 
 from app.database import get_db
@@ -10,7 +12,116 @@ from app.models.solution import Solution
 from app.models.problem import Problem
 from app.schemas.solution import SolutionCreate, SolutionResponse, SolutionList
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def normalize_code_for_duplicate_check(code: str, language: str = "python") -> str:
+    """
+    Normalize code for duplicate detection.
+    More aggressive than similarity check - strips all non-essential content.
+    """
+    normalized = code
+
+    # Remove comments
+    if language.lower() == "python":
+        normalized = re.sub(r'#.*$', '', normalized, flags=re.MULTILINE)
+        normalized = re.sub(r'""".*?"""', '', normalized, flags=re.DOTALL)
+        normalized = re.sub(r"'''.*?'''", '', normalized, flags=re.DOTALL)
+    else:
+        normalized = re.sub(r'//.*$', '', normalized, flags=re.MULTILINE)
+        normalized = re.sub(r'/\*.*?\*/', '', normalized, flags=re.DOTALL)
+
+    # Remove all whitespace
+    normalized = re.sub(r'\s+', '', normalized)
+
+    # Convert to lowercase
+    normalized = normalized.lower()
+
+    return normalized
+
+
+async def check_duplicate_code(
+    db: AsyncSession,
+    code: str,
+    language: str,
+    problem_id: UUID,
+    threshold: float = 0.9
+) -> Solution | None:
+    """
+    Check if similar code already exists for this problem.
+    Returns the existing solution if found, None otherwise.
+    """
+    # Get all solutions for this problem in the same language
+    result = await db.execute(
+        select(Solution)
+        .where(Solution.problem_id == problem_id)
+        .where(Solution.language == language.lower())
+    )
+    existing_solutions = result.scalars().all()
+
+    if not existing_solutions:
+        return None
+
+    # Normalize new code
+    new_code_normalized = normalize_code_for_duplicate_check(code, language)
+
+    for existing in existing_solutions:
+        existing_normalized = normalize_code_for_duplicate_check(existing.code, language)
+
+        # Check exact match (after normalization)
+        if new_code_normalized == existing_normalized:
+            logger.info(f"Exact duplicate found: solution {existing.id}")
+            return existing
+
+        # Check high similarity using Jaccard on tokens
+        new_tokens = set(new_code_normalized)  # character-level
+        existing_tokens = set(existing_normalized)
+
+        if new_tokens and existing_tokens:
+            intersection = len(new_tokens & existing_tokens)
+            union = len(new_tokens | existing_tokens)
+            similarity = intersection / union if union > 0 else 0
+
+            if similarity >= threshold:
+                logger.info(
+                    f"Near-duplicate found: solution {existing.id} "
+                    f"(similarity: {similarity:.2%})"
+                )
+                return existing
+
+    return None
+
+
+@router.get("/stats/by-category")
+async def get_category_stats(db: AsyncSession = Depends(get_db)):
+    """Get solution statistics grouped by category."""
+    sql = """
+        SELECT
+            p.category,
+            COUNT(s.id) as solutions_count,
+            COALESCE(AVG(s.speedup), 0) as avg_speedup,
+            COALESCE(MAX(s.speedup), 0) as max_speedup,
+            SUM(s.vote_count) as total_votes
+        FROM problems p
+        LEFT JOIN solutions s ON s.problem_id = p.id
+        GROUP BY p.category
+        ORDER BY solutions_count DESC
+    """
+    result = await db.execute(text(sql))
+    rows = result.fetchall()
+
+    return [
+        {
+            "category": row.category,
+            "solutions_count": row.solutions_count,
+            "avg_speedup": round(row.avg_speedup, 1) if row.avg_speedup else 0,
+            "max_speedup": row.max_speedup or 0,
+            "total_votes": row.total_votes or 0,
+        }
+        for row in rows
+    ]
 
 
 @router.get("/", response_model=SolutionList)
@@ -89,6 +200,21 @@ async def create_solution(
     problem = result.scalar_one_or_none()
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
+
+    # Check for duplicate code
+    duplicate = await check_duplicate_code(
+        db=db,
+        code=solution.code,
+        language=solution.language,
+        problem_id=problem_uuid,
+        threshold=0.9  # 90% similarity threshold
+    )
+
+    if duplicate:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Similar code already exists: '{duplicate.title}' (ID: {duplicate.id})"
+        )
 
     # TODO: Get current user from auth
     author_id = None  # Anonymous for now
