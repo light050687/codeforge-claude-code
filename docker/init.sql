@@ -107,6 +107,7 @@ CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_score ON users(score DESC);
 CREATE INDEX idx_problems_slug ON problems(slug);
 CREATE INDEX idx_problems_category ON problems(category);
+CREATE INDEX idx_problems_title_trgm ON problems USING gin(title gin_trgm_ops);
 
 -- Trigger to update search_vector
 CREATE OR REPLACE FUNCTION update_search_vector()

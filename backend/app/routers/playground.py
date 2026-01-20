@@ -3,6 +3,7 @@ Playground router for code analysis and optimization.
 """
 
 import logging
+import math
 import re
 from dataclasses import dataclass
 from fastapi import APIRouter, HTTPException
@@ -194,19 +195,21 @@ async def find_similar_solution(code: str, language: str) -> SimilarSolution | N
 
     try:
         async with async_session() as db:
-            # Find top 20 similar solutions by embedding
+            # Find top 30 similar solutions by embedding, including problem info for grouping
             result = await db.execute(
                 text("""
                     SELECT s.id, s.code, s.title, s.speedup,
                            s.complexity_time, s.complexity_space,
+                           p.id as problem_id, p.title as problem_title,
                            1 - (s.embedding <=> :embedding) as sim_score
                     FROM solutions s
+                    JOIN problems p ON s.problem_id = p.id
                     WHERE s.language = :language
                     AND s.speedup IS NOT NULL
                     AND s.speedup > 1
                     AND 1 - (s.embedding <=> :embedding) > 0.2
                     ORDER BY s.embedding <=> :embedding
-                    LIMIT 20
+                    LIMIT 30
                 """),
                 {"embedding": str(embedding), "language": language.lower()}
             )
@@ -216,31 +219,55 @@ async def find_similar_solution(code: str, language: str) -> SimilarSolution | N
                 logger.info("No similar solutions found by embedding")
                 return None
 
-            # Re-rank candidates by combined similarity and speedup
-            best_candidate = None
-            best_score = 0.0
+            # Group solutions by problem and find best solution per problem
+            # Then pick the problem with highest average relevance
+            problem_solutions: dict[str, list] = {}
 
             for row in rows:
-                # Calculate structural similarity
                 structural_sim = calculate_code_similarity(code, row.code, language)
+                combined_sim = (row.sim_score * 0.70 + structural_sim * 0.30)
 
-                # Combined score: semantic + structural, weighted by speedup
-                # Higher speedup solutions are preferred
-                combined_sim = (row.sim_score * 0.6 + structural_sim * 0.4)
-                speedup_bonus = min(row.speedup / 100, 1.0)  # Cap bonus at 100x
-                final_score = combined_sim * (1 + speedup_bonus * 0.5)
+                # Logarithmic speedup bonus - no artificial cap
+                speedup_bonus = math.log10(max(row.speedup, 1)) / 3.0
+                final_score = combined_sim * (1 + speedup_bonus)
 
                 logger.debug(
-                    f"Candidate '{row.title}': embed={row.sim_score:.2f}, "
-                    f"struct={structural_sim:.2f}, speedup={row.speedup}x, "
-                    f"final={final_score:.2f}"
+                    f"Candidate '{row.title}' (problem: {row.problem_title}): "
+                    f"embed={row.sim_score:.2f}, struct={structural_sim:.2f}, "
+                    f"speedup={row.speedup}x, final={final_score:.2f}"
                 )
 
-                if final_score > best_score and (combined_sim > 0.25 or structural_sim > 0.5):
-                    best_score = final_score
-                    best_candidate = row
+                if combined_sim > 0.20 or structural_sim > 0.4:
+                    problem_id = str(row.problem_id)
+                    if problem_id not in problem_solutions:
+                        problem_solutions[problem_id] = []
+                    problem_solutions[problem_id].append((row, final_score, combined_sim))
+
+            if not problem_solutions:
+                logger.info("No candidates passed similarity threshold")
+                return None
+
+            # For each problem, find the solution with highest speedup among good candidates
+            # Then rank problems by their best candidate's combined_sim (relevance to input)
+            best_per_problem = []
+            for problem_id, candidates in problem_solutions.items():
+                # Sort by combined_sim first, then by speedup
+                candidates.sort(key=lambda x: (x[2], x[0].speedup or 0), reverse=True)
+                best_relevance = candidates[0][2]  # highest combined_sim for this problem
+
+                # Among solutions with similar relevance, pick highest speedup
+                top_candidates = [c for c in candidates if c[2] >= best_relevance * 0.9]
+                top_candidates.sort(key=lambda x: x[0].speedup or 0, reverse=True)
+
+                best_solution = top_candidates[0]
+                best_per_problem.append((best_solution[0], best_solution[1], best_relevance))
+
+            # Sort problems by relevance (combined_sim of best candidate)
+            best_per_problem.sort(key=lambda x: x[2], reverse=True)
+            best_candidate = best_per_problem[0][0] if best_per_problem else None
 
             if best_candidate:
+                best_score = best_per_problem[0][1] if best_per_problem else 0.0
                 logger.info(
                     f"Found solution '{best_candidate.title}' with "
                     f"{best_candidate.speedup}x speedup (score: {best_score:.2f})"
