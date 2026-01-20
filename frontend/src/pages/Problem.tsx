@@ -325,7 +325,13 @@ export default function Problem() {
                 {/* Meta Info */}
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4 text-text-muted">
-                    <span>by @{solution.author?.username || 'anonymous'}</span>
+                    <span>
+                      {solution.author ? (
+                        <>by @{solution.author.username}</>
+                      ) : (
+                        <span className="text-text-muted">Community</span>
+                      )}
+                    </span>
                     {solution.complexity_time && (
                       <span>Time: {solution.complexity_time}</span>
                     )}

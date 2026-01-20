@@ -214,7 +214,9 @@ export default function Search() {
               />
 
               <div className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">by @{result.author_username}</span>
+                <span className="text-text-muted">
+                  {result.author_username ? `by @${result.author_username}` : 'Community'}
+                </span>
                 <span className="text-text-muted">↑ {result.vote_count} votes</span>
               </div>
             </motion.div>
