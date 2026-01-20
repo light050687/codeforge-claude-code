@@ -65,6 +65,28 @@ app.include_router(users.router, prefix=f"{settings.api_prefix}/users", tags=["u
 app.include_router(playground.router, prefix=f"{settings.api_prefix}/playground", tags=["playground"])
 
 
+@app.on_event("startup")
+async def startup_event():
+    """Preload embedding model on startup to avoid slow first request."""
+    import asyncio
+    import logging
+    from app.services.embeddings import _get_model
+
+    logger = logging.getLogger(__name__)
+
+    def load_model():
+        try:
+            logger.info("Preloading embedding model...")
+            _get_model()
+            logger.info("Embedding model preloaded successfully")
+        except Exception as e:
+            logger.warning(f"Failed to preload embedding model: {e}")
+
+    # Load model in background to not block startup
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, load_model)
+
+
 @app.get("/")
 async def root():
     return {
