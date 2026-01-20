@@ -11,7 +11,7 @@ export const api = axios.create({
 })
 
 export interface SearchResult {
-  id: number
+  id: string  // UUID
   title: string
   code_preview: string
   language: string
@@ -30,7 +30,7 @@ export interface SearchResponse {
 }
 
 export interface Solution {
-  id: number
+  id: string  // UUID
   title: string
   code: string
   language: string
@@ -43,8 +43,8 @@ export interface Solution {
 }
 
 export interface Benchmark {
-  id: number
-  solution_id: number
+  id: string  // UUID
+  solution_id: string  // UUID
   input_size: string
   execution_time_ms: number
   memory_mb: number
@@ -60,7 +60,7 @@ export async function searchCode(
     limit?: number
   }
 ): Promise<SearchResponse> {
-  const response = await api.post<SearchResponse>('/search', {
+  const response = await api.post<SearchResponse>('/search/', {
     query,
     ...options,
   })
