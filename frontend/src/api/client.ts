@@ -82,4 +82,10 @@ export const playgroundApi = {
     api.post('/playground/analyze', { code, language }),
 }
 
+export const authApi = {
+  getGithubUrl: () => api.get<{ url: string }>('/auth/github'),
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+}
+
 export default api
