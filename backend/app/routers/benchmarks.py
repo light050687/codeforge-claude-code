@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -12,7 +14,7 @@ router = APIRouter()
 
 @router.get("/solution/{solution_id}", response_model=list[BenchmarkResponse])
 async def get_solution_benchmarks(
-    solution_id: int,
+    solution_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     """Get all benchmarks for a solution."""
@@ -32,8 +34,9 @@ async def create_benchmark(
 ):
     """Create a new benchmark result."""
     # Verify solution exists
+    solution_uuid = UUID(benchmark.solution_id)
     result = await db.execute(
-        select(Solution).where(Solution.id == benchmark.solution_id)
+        select(Solution).where(Solution.id == solution_uuid)
     )
     solution = result.scalar_one_or_none()
 
@@ -41,12 +44,13 @@ async def create_benchmark(
         raise HTTPException(status_code=404, detail="Solution not found")
 
     db_benchmark = Benchmark(
-        solution_id=benchmark.solution_id,
+        solution_id=solution_uuid,
+        hardware_profile=benchmark.hardware_profile,
         input_size=benchmark.input_size,
         execution_time_ms=benchmark.execution_time_ms,
-        memory_mb=benchmark.memory_mb,
-        iterations=benchmark.iterations,
-        cpu_info=benchmark.cpu_info,
+        memory_bytes=benchmark.memory_bytes,
+        runs_count=benchmark.runs_count,
+        baseline_time_ms=benchmark.baseline_time_ms,
     )
 
     db.add(db_benchmark)
@@ -62,7 +66,7 @@ async def compare_solutions(
     db: AsyncSession = Depends(get_db),
 ):
     """Compare benchmarks between multiple solutions."""
-    ids = [int(id.strip()) for id in solution_ids.split(",")]
+    ids = [UUID(id.strip()) for id in solution_ids.split(",")]
 
     if len(ids) < 2 or len(ids) > 3:
         raise HTTPException(
@@ -80,12 +84,13 @@ async def compare_solutions(
     # Group by solution
     comparison = {}
     for b in benchmarks:
-        if b.solution_id not in comparison:
-            comparison[b.solution_id] = []
-        comparison[b.solution_id].append({
+        sid = str(b.solution_id)
+        if sid not in comparison:
+            comparison[sid] = []
+        comparison[sid].append({
             "input_size": b.input_size,
             "execution_time_ms": b.execution_time_ms,
-            "memory_mb": b.memory_mb,
+            "memory_bytes": b.memory_bytes,
         })
 
     return comparison

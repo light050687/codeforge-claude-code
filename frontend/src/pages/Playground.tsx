@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
+import { useAnalyzeCode } from '../hooks/usePlayground'
+import { PlaygroundResultSkeleton } from '../components/Skeleton'
+import { ErrorState } from '../components/ErrorState'
 
 const languages = ['Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'C++', 'Java']
 
@@ -12,36 +15,26 @@ export default function Playground() {
                 duplicates.append(arr[i])
     return duplicates`)
   const [language, setLanguage] = useState('Python')
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [result, setResult] = useState<{
-    optimizedCode: string
-    speedup: number
-    complexity: { time: string; space: string }
-    suggestions: string[]
-  } | null>(null)
 
-  const handleAnalyze = async () => {
-    setIsAnalyzing(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setResult({
-      optimizedCode: `def find_duplicates(arr):
-    seen = set()
-    duplicates = set()
-    for item in arr:
-        if item in seen:
-            duplicates.add(item)
-        seen.add(item)
-    return list(duplicates)`,
-      speedup: 147,
-      complexity: { time: 'O(n)', space: 'O(n)' },
-      suggestions: [
-        'Use set instead of list for O(1) lookup',
-        'Single pass instead of nested loops',
-        'Avoid duplicate checking with set semantics',
-      ],
-    })
-    setIsAnalyzing(false)
+  const {
+    mutate: analyzeCode,
+    data: result,
+    isPending,
+    error,
+    reset,
+  } = useAnalyzeCode()
+
+  const handleAnalyze = () => {
+    if (code.trim()) {
+      analyzeCode({ code, language: language.toLowerCase() })
+    }
+  }
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCode(e.target.value)
+    if (result) {
+      reset() // Clear previous result when code changes
+    }
   }
 
   return (
@@ -72,24 +65,22 @@ export default function Playground() {
           </div>
           <textarea
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={handleCodeChange}
             className="w-full h-80 p-4 bg-bg-secondary border border-bg-tertiary rounded-xl text-text-primary font-mono text-sm resize-none focus:outline-none focus:border-accent-primary"
             placeholder="Paste your code here..."
           />
           <button
             onClick={handleAnalyze}
-            disabled={isAnalyzing || !code.trim()}
+            disabled={isPending || !code.trim()}
             className="w-full py-3 bg-accent-primary text-white rounded-xl hover:bg-accent-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isAnalyzing ? (
+            {isPending ? (
               <>
                 <span className="animate-spin">⚙️</span>
                 Analyzing...
               </>
             ) : (
-              <>
-                🚀 Find Better
-              </>
+              <>🚀 Find Better</>
             )}
           </button>
         </div>
@@ -97,7 +88,14 @@ export default function Playground() {
         {/* Output */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-text-primary">Optimized Version</h2>
-          {result ? (
+          {isPending ? (
+            <PlaygroundResultSkeleton />
+          ) : error ? (
+            <ErrorState
+              message="Failed to analyze code. Please try again."
+              onRetry={handleAnalyze}
+            />
+          ) : result ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -106,7 +104,7 @@ export default function Playground() {
               {/* Speedup Badge */}
               <div className="flex items-center gap-4 p-4 bg-accent-success/10 border border-accent-success/30 rounded-xl">
                 <span className="text-4xl font-bold text-accent-success">
-                  {result.speedup}x
+                  {result.speedup.toFixed(0)}x
                 </span>
                 <div>
                   <div className="text-text-primary font-medium">Faster</div>
@@ -118,7 +116,7 @@ export default function Playground() {
 
               {/* Optimized Code */}
               <pre className="p-4 bg-bg-secondary border border-bg-tertiary rounded-xl text-text-primary font-mono text-sm overflow-x-auto h-48">
-                {result.optimizedCode}
+                {result.optimized_code}
               </pre>
 
               {/* Suggestions */}
@@ -128,7 +126,10 @@ export default function Playground() {
                 </h3>
                 <ul className="space-y-1">
                   {result.suggestions.map((suggestion, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+                    <li
+                      key={i}
+                      className="flex items-start gap-2 text-sm text-text-secondary"
+                    >
                       <span className="text-accent-success">✓</span>
                       {suggestion}
                     </li>

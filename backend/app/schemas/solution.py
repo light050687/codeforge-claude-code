@@ -1,42 +1,48 @@
 from datetime import datetime
-from pydantic import BaseModel
-
-from app.schemas.user import UserResponse
+from uuid import UUID
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class SolutionBase(BaseModel):
     title: str
     code: str
     language: str
-    time_complexity: str | None = None
-    space_complexity: str | None = None
+    description: str | None = None
+    complexity_time: str | None = None
+    complexity_space: str | None = None
 
 
 class SolutionCreate(SolutionBase):
-    problem_id: int
+    problem_id: str
 
 
 class AuthorBrief(BaseModel):
-    id: int
-    username: str
-    avatar_url: str | None
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: UUID
+    username: str
+    avatar_url: str | None = None
+
+    @field_serializer('id')
+    def serialize_id(self, v: UUID) -> str:
+        return str(v)
 
 
 class SolutionResponse(SolutionBase):
-    id: int
-    problem_id: int
-    author: AuthorBrief
-    speedup: float | None
-    execution_time_ms: float | None
-    memory_mb: float | None
-    votes_count: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    problem_id: UUID
+    author: AuthorBrief | None = None
+    speedup: float | None = None
+    vote_count: int = 0
+    is_verified: bool = False
+    tags: list[str] = []
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    @field_serializer('id', 'problem_id')
+    def serialize_uuid(self, v: UUID) -> str:
+        return str(v)
 
 
 class SolutionList(BaseModel):

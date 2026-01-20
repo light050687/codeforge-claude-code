@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -15,7 +17,7 @@ router = APIRouter()
 async def list_solutions(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    problem_id: int | None = None,
+    problem_id: UUID | None = None,
     language: str | None = None,
     min_speedup: float | None = None,
     sort_by: str = Query("votes", regex="^(votes|speedup|recent)$"),
@@ -33,7 +35,7 @@ async def list_solutions(
 
     # Sorting
     if sort_by == "votes":
-        query = query.order_by(Solution.votes_count.desc())
+        query = query.order_by(Solution.vote_count.desc())
     elif sort_by == "speedup":
         query = query.order_by(Solution.speedup.desc().nullslast())
     else:  # recent
@@ -54,7 +56,7 @@ async def list_solutions(
 
 
 @router.get("/{solution_id}", response_model=SolutionResponse)
-async def get_solution(solution_id: int, db: AsyncSession = Depends(get_db)):
+async def get_solution(solution_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get a specific solution by ID."""
     result = await db.execute(
         select(Solution)
@@ -76,40 +78,38 @@ async def create_solution(
 ):
     """Create a new solution."""
     # Check if problem exists
+    problem_uuid = UUID(solution.problem_id)
     result = await db.execute(
-        select(Problem).where(Problem.id == solution.problem_id)
+        select(Problem).where(Problem.id == problem_uuid)
     )
     problem = result.scalar_one_or_none()
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
 
     # TODO: Get current user from auth
-    author_id = 1  # Placeholder
+    author_id = None  # Anonymous for now
 
     db_solution = Solution(
-        problem_id=solution.problem_id,
+        problem_id=problem_uuid,
         author_id=author_id,
         title=solution.title,
+        description=solution.description,
         code=solution.code,
         language=solution.language,
-        time_complexity=solution.time_complexity,
-        space_complexity=solution.space_complexity,
+        complexity_time=solution.complexity_time,
+        complexity_space=solution.complexity_space,
     )
 
     db.add(db_solution)
     await db.commit()
     await db.refresh(db_solution)
 
-    # Update problem solutions count
-    problem.solutions_count += 1
-    await db.commit()
-
     return db_solution
 
 
 @router.post("/{solution_id}/vote")
 async def vote_solution(
-    solution_id: int,
+    solution_id: UUID,
     value: int = Query(..., ge=-1, le=1),
     db: AsyncSession = Depends(get_db),
 ):
@@ -123,7 +123,7 @@ async def vote_solution(
         raise HTTPException(status_code=404, detail="Solution not found")
 
     # TODO: Check if user already voted, update vote
-    solution.votes_count += value
+    solution.vote_count += value
     await db.commit()
 
-    return {"votes_count": solution.votes_count}
+    return {"vote_count": solution.vote_count}

@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile
     container_name: codeforge-backend
     environment:
-      DATABASE_URL: postgresql://codeforge:codeforge_dev_password@postgres:5432/codeforge
+      DATABASE_URL: postgresql+asyncpg://codeforge:codeforge_dev_password@postgres:5432/codeforge
       REDIS_URL: redis://redis:6379
       SECRET_KEY: dev-secret-key-change-in-production
       DEBUG: "true"
@@ -67,11 +67,11 @@ services:
     environment:
       VITE_API_URL: http://localhost:8000/api/v1
     ports:
-      - "3000:3000"
+      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: npm run dev -- --host 0.0.0.0
+    command: npm run dev -- --host 0.0.0.0 --port 5173
 
   # Celery Worker for background tasks
   worker:
@@ -80,7 +80,7 @@ services:
       dockerfile: Dockerfile
     container_name: codeforge-worker
     environment:
-      DATABASE_URL: postgresql://codeforge:codeforge_dev_password@postgres:5432/codeforge
+      DATABASE_URL: postgresql+asyncpg://codeforge:codeforge_dev_password@postgres:5432/codeforge
       REDIS_URL: redis://redis:6379
     volumes:
       - ./backend:/app

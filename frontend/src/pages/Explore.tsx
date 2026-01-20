@@ -1,27 +1,60 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-
-const categories = [
-  { id: 'sorting', name: 'Sorting', icon: '⬆️', count: 128 },
-  { id: 'searching', name: 'Searching', icon: '🔍', count: 96 },
-  { id: 'graphs', name: 'Graphs', icon: '🌐', count: 84 },
-  { id: 'strings', name: 'Strings', icon: '📝', count: 156 },
-  { id: 'math', name: 'Math', icon: '🔢', count: 112 },
-  { id: 'data_structures', name: 'Data Structures', icon: '🗂️', count: 142 },
-  { id: 'io_optimization', name: 'I/O Optimization', icon: '⚡', count: 48 },
-  { id: 'memory', name: 'Memory Management', icon: '💾', count: 36 },
-  { id: 'crypto', name: 'Cryptography', icon: '🔐', count: 24 },
-  { id: 'ml', name: 'Machine Learning', icon: '🤖', count: 52 },
-]
-
-const stats = [
-  { label: 'Solutions', value: '12,847' },
-  { label: 'Problems', value: '1,256' },
-  { label: 'Contributors', value: '3,421' },
-  { label: 'Avg Speedup', value: '47x' },
-]
+import { useTrendingSolutions, useSolutionsCount } from '../hooks/useSolutions'
+import { useProblems } from '../hooks/useProblems'
+import { useTopUsers } from '../hooks/useUsers'
+import {
+  StatSkeleton,
+  CategorySkeleton,
+  SolutionCardSkeleton,
+} from '../components/Skeleton'
+import { CATEGORY_META, type Category } from '../types/api'
 
 export default function Explore() {
+  // Fetch data
+  const { data: trendingSolutions, isLoading: loadingTrending } =
+    useTrendingSolutions(3)
+  const { data: problemsData, isLoading: loadingProblems } = useProblems({
+    size: 100,
+  })
+  const { data: usersData, isLoading: loadingUsers } = useTopUsers(100)
+  const { data: totalSolutions, isLoading: loadingSolutions } = useSolutionsCount()
+
+  // Compute stats from fetched data
+  const totalProblems = problemsData?.total || 0
+  const totalUsers = usersData?.total || 0
+  const avgSpeedup = trendingSolutions?.length
+    ? Math.round(
+        trendingSolutions.reduce((acc, s) => acc + (s.speedup || 0), 0) /
+          trendingSolutions.length
+      )
+    : 0
+
+  const stats = [
+    { label: 'Solutions', value: totalSolutions || 0, loading: loadingSolutions },
+    { label: 'Problems', value: totalProblems, loading: loadingProblems },
+    { label: 'Contributors', value: totalUsers, loading: loadingUsers },
+    {
+      label: 'Avg Speedup',
+      value: avgSpeedup,
+      suffix: 'x',
+      loading: loadingTrending,
+    },
+  ]
+
+  // Count problems per category
+  const categoryCounts: Record<string, number> = {}
+  problemsData?.items.forEach((problem) => {
+    categoryCounts[problem.category] = (categoryCounts[problem.category] || 0) + 1
+  })
+
+  const categories = Object.entries(CATEGORY_META).map(([id, meta]) => ({
+    id: id as Category,
+    name: meta.name,
+    icon: meta.icon,
+    count: categoryCounts[id] || 0,
+  }))
+
   return (
     <div className="space-y-12">
       {/* Hero Section */}
@@ -39,8 +72,8 @@ export default function Explore() {
           transition={{ delay: 0.1 }}
           className="text-lg text-text-secondary max-w-2xl mx-auto mb-8"
         >
-          Semantic search for optimized algorithm implementations.
-          Discover solutions that are 10x-1000x faster than naive approaches.
+          Semantic search for optimized algorithm implementations. Discover
+          solutions that are 10x-1000x faster than naive approaches.
         </motion.p>
 
         {/* Search Box */}
@@ -54,7 +87,9 @@ export default function Explore() {
             to="/search"
             className="flex items-center gap-3 px-6 py-4 bg-bg-secondary border border-bg-tertiary rounded-xl hover:border-accent-primary/50 transition-colors group"
           >
-            <span className="text-text-muted group-hover:text-text-secondary">🔍</span>
+            <span className="text-text-muted group-hover:text-text-secondary">
+              🔍
+            </span>
             <span className="text-text-muted group-hover:text-text-secondary">
               Search for optimized code...
             </span>
@@ -64,18 +99,25 @@ export default function Explore() {
 
       {/* Stats */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 + index * 0.1 }}
-            className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 text-center"
-          >
-            <div className="text-3xl font-bold text-text-primary">{stat.value}</div>
-            <div className="text-sm text-text-muted mt-1">{stat.label}</div>
-          </motion.div>
-        ))}
+        {stats.map((stat, index) =>
+          stat.loading ? (
+            <StatSkeleton key={stat.label} />
+          ) : (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + index * 0.1 }}
+              className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 text-center"
+            >
+              <div className="text-3xl font-bold text-text-primary">
+                {stat.value.toLocaleString()}
+                {stat.suffix || ''}
+              </div>
+              <div className="text-sm text-text-muted mt-1">{stat.label}</div>
+            </motion.div>
+          )
+        )}
       </section>
 
       {/* Categories */}
@@ -84,23 +126,29 @@ export default function Explore() {
           Browse by Category
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {categories.map((category, index) => (
-            <motion.div
-              key={category.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 + index * 0.05 }}
-            >
-              <Link
-                to={`/search?category=${category.id}`}
-                className="flex flex-col items-center p-6 bg-bg-secondary border border-bg-tertiary rounded-xl hover:border-accent-primary/50 transition-colors group"
-              >
-                <span className="text-3xl mb-2">{category.icon}</span>
-                <span className="text-text-primary font-medium">{category.name}</span>
-                <span className="text-sm text-text-muted">{category.count} solutions</span>
-              </Link>
-            </motion.div>
-          ))}
+          {loadingProblems
+            ? Array.from({ length: 10 }).map((_, i) => <CategorySkeleton key={i} />)
+            : categories.map((category, index) => (
+                <motion.div
+                  key={category.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 + index * 0.05 }}
+                >
+                  <Link
+                    to={`/search?category=${category.id}`}
+                    className="flex flex-col items-center p-6 bg-bg-secondary border border-bg-tertiary rounded-xl hover:border-accent-primary/50 transition-colors group"
+                  >
+                    <span className="text-3xl mb-2">{category.icon}</span>
+                    <span className="text-text-primary font-medium">
+                      {category.name}
+                    </span>
+                    <span className="text-sm text-text-muted">
+                      {category.count} problems
+                    </span>
+                  </Link>
+                </motion.div>
+              ))}
         </div>
       </section>
 
@@ -110,32 +158,53 @@ export default function Explore() {
           Trending Solutions
         </h2>
         <div className="grid md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 + i * 0.1 }}
-              className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="px-2 py-1 text-xs font-medium bg-accent-success/20 text-accent-success rounded">
-                  234x faster
-                </span>
-                <span className="text-sm text-text-muted">Python</span>
-              </div>
-              <h3 className="text-lg font-medium text-text-primary mb-2">
-                Binary Search with SIMD
-              </h3>
-              <p className="text-sm text-text-secondary line-clamp-2 mb-4">
-                Optimized binary search using vectorized operations for array lookup.
-              </p>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-text-muted">by @speedmaster</span>
-                <span className="text-text-muted">↑ 342 votes</span>
-              </div>
-            </motion.div>
-          ))}
+          {loadingTrending
+            ? Array.from({ length: 3 }).map((_, i) => (
+                <SolutionCardSkeleton key={i} />
+              ))
+            : trendingSolutions?.map((solution, index) => (
+                <motion.div
+                  key={solution.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 + index * 0.1 }}
+                  className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    {solution.speedup ? (
+                      <span className="px-2 py-1 text-xs font-medium bg-accent-success/20 text-accent-success rounded">
+                        {solution.speedup.toFixed(0)}x faster
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs font-medium bg-bg-tertiary text-text-muted rounded">
+                        -
+                      </span>
+                    )}
+                    <span className="text-sm text-text-muted">
+                      {solution.language}
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-medium text-text-primary mb-2">
+                    {solution.title}
+                  </h3>
+                  <p className="text-sm text-text-secondary line-clamp-2 mb-4">
+                    {solution.complexity_time && `${solution.complexity_time} time`}
+                    {solution.complexity_space &&
+                      ` / ${solution.complexity_space} space`}
+                    {!solution.complexity_time &&
+                      !solution.complexity_space &&
+                      'Optimized implementation'}
+                  </p>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-text-muted">
+                      by @{solution.author?.username || 'anonymous'}
+                    </span>
+                    <span className="text-text-muted">
+                      ↑ {solution.vote_count} votes
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
         </div>
       </section>
     </div>

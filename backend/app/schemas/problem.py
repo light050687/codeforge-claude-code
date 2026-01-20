@@ -1,33 +1,34 @@
 from datetime import datetime
-from pydantic import BaseModel
-
-from app.models.problem import Category, Difficulty
+from uuid import UUID
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class ProblemBase(BaseModel):
     title: str
-    description: str
-    category: Category
-    difficulty: Difficulty
+    description: str | None = None
+    category: str
+    difficulty: str
     baseline_code: str
     baseline_language: str
 
 
 class ProblemCreate(ProblemBase):
-    slug: str | None = None
     test_cases: str | None = None
-    baseline_time_ms: float | None = None
+    baseline_complexity_time: str | None = None
+    baseline_complexity_space: str | None = None
 
 
 class ProblemResponse(ProblemBase):
-    id: int
-    slug: str
-    baseline_time_ms: float | None
-    solutions_count: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    baseline_complexity_time: str | None = None
+    baseline_complexity_space: str | None = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    @field_serializer('id')
+    def serialize_id(self, v: UUID) -> str:
+        return str(v)
 
 
 class ProblemList(BaseModel):

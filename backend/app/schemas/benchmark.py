@@ -1,23 +1,28 @@
 from datetime import datetime
-from pydantic import BaseModel
+from uuid import UUID
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class BenchmarkBase(BaseModel):
-    input_size: str
+    hardware_profile: str = "standard"
+    input_size: int
     execution_time_ms: float
-    memory_mb: float
-    iterations: int = 10
-    cpu_info: str | None = None
+    memory_bytes: int | None = None
+    runs_count: int = 10
+    baseline_time_ms: float | None = None
 
 
 class BenchmarkCreate(BenchmarkBase):
-    solution_id: int
+    solution_id: str
 
 
 class BenchmarkResponse(BenchmarkBase):
-    id: int
-    solution_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    solution_id: UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    @field_serializer('id', 'solution_id')
+    def serialize_uuid(self, v: UUID) -> str:
+        return str(v)

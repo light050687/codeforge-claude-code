@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import auth, problems, solutions, search, benchmarks, users
+from app.routers import auth, problems, solutions, search, benchmarks, users, playground
 
 settings = get_settings()
 
@@ -30,6 +30,7 @@ app.include_router(solutions.router, prefix=f"{settings.api_prefix}/solutions", 
 app.include_router(search.router, prefix=f"{settings.api_prefix}/search", tags=["search"])
 app.include_router(benchmarks.router, prefix=f"{settings.api_prefix}/benchmarks", tags=["benchmarks"])
 app.include_router(users.router, prefix=f"{settings.api_prefix}/users", tags=["users"])
+app.include_router(playground.router, prefix=f"{settings.api_prefix}/playground", tags=["playground"])
 
 
 @app.get("/")

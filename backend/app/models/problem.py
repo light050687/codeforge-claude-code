@@ -1,5 +1,7 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, Text, DateTime, Enum, func
+import uuid
+from sqlalchemy import String, Text, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID, ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
@@ -19,32 +21,41 @@ class Category(str, enum.Enum):
     STRINGS = "strings"
     MATH = "math"
     DATA_STRUCTURES = "data_structures"
-    IO_OPTIMIZATION = "io_optimization"
-    MEMORY_MANAGEMENT = "memory_management"
-    CRYPTOGRAPHY = "cryptography"
-    MACHINE_LEARNING = "machine_learning"
+    IO_OPTIMIZATION = "io"
+    MEMORY_MANAGEMENT = "memory"
+    CRYPTOGRAPHY = "crypto"
+    MACHINE_LEARNING = "ml"
+
+
+# PostgreSQL ENUM types
+difficulty_level = ENUM('easy', 'medium', 'hard', name='difficulty_level', create_type=False)
+category_type = ENUM(
+    'sorting', 'searching', 'graphs', 'strings', 'math',
+    'data_structures', 'io', 'memory', 'crypto', 'ml',
+    name='category_type', create_type=False
+)
 
 
 class Problem(Base):
     __tablename__ = "problems"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
     title: Mapped[str] = mapped_column(String(255), index=True)
-    slug: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    description: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    category: Mapped[Category] = mapped_column(Enum(Category), index=True)
-    difficulty: Mapped[Difficulty] = mapped_column(Enum(Difficulty), index=True)
+    category: Mapped[str] = mapped_column(category_type, index=True)
+    difficulty: Mapped[str] = mapped_column(difficulty_level, index=True)
 
     # Baseline code for speedup comparison
     baseline_code: Mapped[str] = mapped_column(Text)
     baseline_language: Mapped[str] = mapped_column(String(50))
-    baseline_time_ms: Mapped[float | None] = mapped_column(nullable=True)
+    baseline_complexity_time: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    baseline_complexity_space: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Test cases (JSON)
     test_cases: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    solutions_count: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
