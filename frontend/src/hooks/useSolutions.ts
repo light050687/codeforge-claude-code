@@ -18,9 +18,8 @@ interface UseSolutionsOptions {
 }
 
 export function useSolutions(filters: SolutionFilters = {}, options: UseSolutionsOptions = {}) {
-  // If problem_id is provided in filters, wait for it to be defined
-  const shouldEnable = options.enabled !== false &&
-    (filters.problem_id === undefined || filters.problem_id !== undefined)
+  // Use the explicit enabled option - let the caller control when to fetch
+  const shouldEnable = options.enabled !== false
 
   return useQuery<SolutionList>({
     queryKey: ['solutions', filters],
