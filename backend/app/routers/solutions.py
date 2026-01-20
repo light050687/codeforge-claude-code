@@ -41,10 +41,14 @@ async def list_solutions(
     else:  # recent
         query = query.order_by(Solution.created_at.desc())
 
-    # Count total
-    count_query = select(func.count()).select_from(
-        select(Solution.id).where(query.whereclause).subquery()
-    )
+    # Count total - build separate count query with same filters
+    count_query = select(func.count()).select_from(Solution)
+    if problem_id:
+        count_query = count_query.where(Solution.problem_id == problem_id)
+    if language:
+        count_query = count_query.where(Solution.language == language)
+    if min_speedup:
+        count_query = count_query.where(Solution.speedup >= min_speedup)
     total = await db.scalar(count_query) or 0
 
     # Paginate
