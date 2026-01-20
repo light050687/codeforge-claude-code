@@ -2,7 +2,21 @@
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "@anthropic/mcp-server-filesystem", "D:/projects/codeforge-claude-code"]
+      "args": [
+        "-y",
+        "@anthropic/mcp-server-filesystem",
+        "D:/projects/codeforge-claude-code"
+      ]
+    },
+    "codeforge": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "D:/projects/codeforge-claude-code/mcp-plugin/dist/index.js"
+      ],
+      "env": {
+        "CODEFORGE_API_URL": "http://localhost:8000/api/v1"
+      }
     }
   }
 }
