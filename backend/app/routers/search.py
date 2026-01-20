@@ -29,13 +29,13 @@ async def semantic_search(
             s.code,
             s.language,
             s.speedup,
-            s.votes_count,
-            u.username as author_username,
+            s.vote_count,
+            COALESCE(u.username, 'anonymous') as author_username,
             p.title as problem_title,
             p.category as problem_category,
             1 - (s.embedding <=> :embedding) as similarity_score
         FROM solutions s
-        JOIN users u ON s.author_id = u.id
+        LEFT JOIN users u ON s.author_id = u.id
         JOIN problems p ON s.problem_id = p.id
         WHERE s.embedding IS NOT NULL
     """
@@ -49,7 +49,7 @@ async def semantic_search(
 
     if query.category:
         sql += " AND p.category = :category"
-        params["category"] = query.category.value
+        params["category"] = query.category
 
     if query.min_speedup:
         sql += " AND s.speedup >= :min_speedup"
@@ -66,12 +66,12 @@ async def semantic_search(
     items = []
     for row in rows:
         items.append(SearchResultItem(
-            id=row.id,
+            id=str(row.id),
             title=row.title,
             code_preview=row.code[:200] + "..." if len(row.code) > 200 else row.code,
             language=row.language,
             speedup=row.speedup,
-            votes_count=row.votes_count,
+            vote_count=row.vote_count,
             author_username=row.author_username,
             problem_title=row.problem_title,
             problem_category=row.problem_category,

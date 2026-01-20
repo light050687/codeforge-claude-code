@@ -1,9 +1,11 @@
+from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.database import get_db
-from app.models.problem import Problem, Category, Difficulty
+from app.models.problem import Problem
 from app.schemas.problem import ProblemCreate, ProblemResponse, ProblemList
 
 router = APIRouter()
@@ -13,8 +15,8 @@ router = APIRouter()
 async def list_problems(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
-    category: Category | None = None,
-    difficulty: Difficulty | None = None,
+    category: str | None = None,
+    difficulty: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """List all problems with pagination and filters."""
@@ -38,21 +40,9 @@ async def list_problems(
 
 
 @router.get("/{problem_id}", response_model=ProblemResponse)
-async def get_problem(problem_id: int, db: AsyncSession = Depends(get_db)):
+async def get_problem(problem_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get a specific problem by ID."""
     result = await db.execute(select(Problem).where(Problem.id == problem_id))
-    problem = result.scalar_one_or_none()
-
-    if not problem:
-        raise HTTPException(status_code=404, detail="Problem not found")
-
-    return problem
-
-
-@router.get("/slug/{slug}", response_model=ProblemResponse)
-async def get_problem_by_slug(slug: str, db: AsyncSession = Depends(get_db)):
-    """Get a specific problem by slug."""
-    result = await db.execute(select(Problem).where(Problem.slug == slug))
     problem = result.scalar_one_or_none()
 
     if not problem:
@@ -67,18 +57,15 @@ async def create_problem(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new problem (admin only)."""
-    # Generate slug from title if not provided
-    slug = problem.slug or problem.title.lower().replace(" ", "-")
-
     db_problem = Problem(
         title=problem.title,
-        slug=slug,
         description=problem.description,
         category=problem.category,
         difficulty=problem.difficulty,
         baseline_code=problem.baseline_code,
         baseline_language=problem.baseline_language,
-        baseline_time_ms=problem.baseline_time_ms,
+        baseline_complexity_time=problem.baseline_complexity_time,
+        baseline_complexity_space=problem.baseline_complexity_space,
         test_cases=problem.test_cases,
     )
 

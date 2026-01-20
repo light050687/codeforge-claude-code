@@ -1,5 +1,7 @@
 from datetime import datetime
+import uuid
 from sqlalchemy import String, Integer, DateTime, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -8,11 +10,14 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    github_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
-    username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    username: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    oauth_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    oauth_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     score: Mapped[int] = mapped_column(Integer, default=0)
     solutions_count: Mapped[int] = mapped_column(Integer, default=0)
 

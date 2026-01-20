@@ -1,5 +1,7 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, Text, Float, DateTime, ForeignKey, func
+import uuid
+from sqlalchemy import String, Integer, Text, Float, DateTime, ForeignKey, Boolean, func, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, ENUM, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 
@@ -8,35 +10,53 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# PostgreSQL ENUM type
+language_type = ENUM(
+    'python', 'javascript', 'typescript', 'go', 'rust',
+    'cpp', 'c', 'java', 'csharp', 'ruby', 'php',
+    'swift', 'kotlin', 'scala', 'haskell', 'lua',
+    name='language_type', create_type=False
+)
+
 
 class Solution(Base):
     __tablename__ = "solutions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
 
     # Foreign keys
-    problem_id: Mapped[int] = mapped_column(ForeignKey("problems.id"), index=True)
-    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    problem_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), index=True
+    )
+    author_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
 
     # Code
     title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     code: Mapped[str] = mapped_column(Text)
-    language: Mapped[str] = mapped_column(String(50), index=True)
+    language: Mapped[str] = mapped_column(language_type, index=True)
 
     # Complexity
-    time_complexity: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    space_complexity: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    complexity_time: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    complexity_space: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    # Performance
-    speedup: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
-    execution_time_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
-    memory_mb: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Tags
+    tags = mapped_column(ARRAY(Text), default=[])
 
     # Embedding for semantic search
     embedding = mapped_column(Vector(settings.embedding_dim), nullable=True)
+    search_vector = mapped_column(TSVECTOR, nullable=True)
 
-    # Votes
-    votes_count: Mapped[int] = mapped_column(Integer, default=0)
+    # Verification and votes
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    vote_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Performance
+    speedup: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

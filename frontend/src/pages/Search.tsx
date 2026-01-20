@@ -1,48 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
+import { useSearch } from '../hooks/useSearch'
+import { SearchResultSkeleton } from '../components/Skeleton'
+import { ErrorState, EmptyState } from '../components/ErrorState'
+import type { Category } from '../types/api'
 
 const languages = ['All', 'Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'C++', 'Java']
 const sortOptions = ['Relevance', 'Speedup', 'Votes', 'Recent']
 
 export default function Search() {
-  const [searchParams] = useSearchParams()
-  const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [selectedLanguage, setSelectedLanguage] = useState('All')
-  const [sortBy, setSortBy] = useState('Relevance')
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const mockResults = [
-    {
-      id: 1,
-      title: 'NumPy-based Matrix Multiplication',
-      problem: 'Matrix Multiplication',
-      language: 'Python',
-      speedup: 156,
-      votes: 892,
-      author: 'pymaster',
-      preview: 'def matmul_fast(a, b):\n    return np.dot(a, b)',
-    },
-    {
-      id: 2,
-      title: 'SIMD-optimized Quick Sort',
-      problem: 'Array Sorting',
-      language: 'C++',
-      speedup: 234,
-      votes: 567,
-      author: 'speedking',
-      preview: 'void quicksort_simd(int* arr, int n) {\n    // SIMD implementation',
-    },
-    {
-      id: 3,
-      title: 'Hash-based Duplicate Detection',
-      problem: 'Find Duplicates',
-      language: 'Go',
-      speedup: 89,
-      votes: 445,
-      author: 'gopher',
-      preview: 'func findDuplicates(arr []int) []int {\n    seen := make(map[int]bool)',
-    },
-  ]
+  // Initialize state from URL params
+  const [query, setQuery] = useState(searchParams.get('q') || '')
+  const [selectedLanguage, setSelectedLanguage] = useState(
+    searchParams.get('language') || 'All'
+  )
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'Relevance')
+  const [category] = useState<Category | undefined>(
+    (searchParams.get('category') as Category) || undefined
+  )
+
+  // Sync state to URL
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (query) params.set('q', query)
+    if (selectedLanguage !== 'All') params.set('language', selectedLanguage)
+    if (sortBy !== 'Relevance') params.set('sort', sortBy)
+    if (category) params.set('category', category)
+    setSearchParams(params, { replace: true })
+  }, [query, selectedLanguage, sortBy, category, setSearchParams])
+
+  // Search query
+  const { data, isLoading, error, refetch } = useSearch(
+    query
+      ? {
+          query,
+          language:
+            selectedLanguage !== 'All' ? selectedLanguage.toLowerCase() : undefined,
+          category,
+          limit: 20,
+          offset: 0,
+        }
+      : null
+  )
+
+  const handleSearch = () => {
+    if (query.trim()) {
+      refetch()
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch()
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -53,11 +67,16 @@ export default function Search() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Search for optimized algorithms..."
             className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-xl text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-primary"
           />
         </div>
-        <button className="px-6 py-3 bg-accent-primary text-white rounded-xl hover:bg-accent-primary/90 transition-colors">
+        <button
+          onClick={handleSearch}
+          disabled={!query.trim()}
+          className="px-6 py-3 bg-accent-primary text-white rounded-xl hover:bg-accent-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           Search
         </button>
       </div>
@@ -65,7 +84,7 @@ export default function Search() {
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center">
         {/* Language Filter */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {languages.map((lang) => (
             <button
               key={lang}
@@ -100,51 +119,83 @@ export default function Search() {
 
       {/* Results */}
       <div className="space-y-4">
-        {mockResults.map((result, index) => (
-          <motion.div
-            key={result.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="text-lg font-medium text-text-primary">
-                  {result.title}
-                </h3>
-                <p className="text-sm text-text-muted">Problem: {result.problem}</p>
+        {isLoading ? (
+          // Loading skeletons
+          <>
+            {[1, 2, 3].map((i) => (
+              <SearchResultSkeleton key={i} />
+            ))}
+          </>
+        ) : error ? (
+          <ErrorState
+            message="Failed to load search results. Please try again."
+            onRetry={() => refetch()}
+          />
+        ) : !query ? (
+          <EmptyState
+            message="Enter a search query to find optimized code"
+            icon="🔍"
+          />
+        ) : data?.items.length === 0 ? (
+          <EmptyState message={`No results found for "${query}"`} icon="📭" />
+        ) : (
+          data?.items.map((result, index) => (
+            <motion.div
+              key={result.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="text-lg font-medium text-text-primary">
+                    {result.title}
+                  </h3>
+                  <p className="text-sm text-text-muted">
+                    Problem: {result.problem_title}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-1 text-xs font-medium bg-bg-tertiary text-text-secondary rounded">
+                    {result.language}
+                  </span>
+                  {result.speedup && (
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded ${
+                        result.speedup > 100
+                          ? 'bg-accent-success/20 text-accent-success'
+                          : result.speedup > 10
+                            ? 'bg-accent-warning/20 text-accent-warning'
+                            : 'bg-bg-tertiary text-text-secondary'
+                      }`}
+                    >
+                      {result.speedup.toFixed(0)}x faster
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="px-2 py-1 text-xs font-medium bg-bg-tertiary text-text-secondary rounded">
-                  {result.language}
-                </span>
-                <span
-                  className={`px-2 py-1 text-xs font-medium rounded ${
-                    result.speedup > 100
-                      ? 'bg-accent-success/20 text-accent-success'
-                      : result.speedup > 10
-                      ? 'bg-accent-warning/20 text-accent-warning'
-                      : 'bg-bg-tertiary text-text-secondary'
-                  }`}
-                >
-                  {result.speedup}x faster
-                </span>
+
+              {/* Code Preview */}
+              <pre className="bg-bg-primary rounded-lg p-4 text-sm font-mono text-text-secondary overflow-x-auto mb-3">
+                {result.code_preview}
+              </pre>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-muted">by @{result.author_username}</span>
+                <span className="text-text-muted">↑ {result.vote_count} votes</span>
               </div>
-            </div>
-
-            {/* Code Preview */}
-            <pre className="bg-bg-primary rounded-lg p-4 text-sm font-mono text-text-secondary overflow-x-auto mb-3">
-              {result.preview}
-            </pre>
-
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-text-muted">by @{result.author}</span>
-              <span className="text-text-muted">↑ {result.votes} votes</span>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          ))
+        )}
       </div>
+
+      {/* Results count */}
+      {data && data.total > 0 && (
+        <div className="text-center text-sm text-text-muted">
+          Showing {data.items.length} of {data.total} results
+        </div>
+      )}
     </div>
   )
 }

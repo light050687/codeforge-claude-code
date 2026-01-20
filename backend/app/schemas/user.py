@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel
+from uuid import UUID
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class UserBase(BaseModel):
@@ -9,7 +10,8 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    github_id: int
+    oauth_provider: str | None = None
+    oauth_id: str | None = None
 
 
 class UserUpdate(BaseModel):
@@ -18,11 +20,13 @@ class UserUpdate(BaseModel):
 
 
 class UserResponse(UserBase):
-    id: int
-    github_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     score: int
     solutions_count: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    @field_serializer('id')
+    def serialize_id(self, v: UUID) -> str:
+        return str(v)
