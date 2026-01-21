@@ -31,6 +31,7 @@ class SearchResultItem(BaseModel):
     vote_count: int
     author_username: str
     problem_id: str  # UUID as string
+    problem_slug: str  # For routing to problem page
     problem_title: str
     problem_category: str
     similarity_score: float | None = None  # Optional for category-only searches

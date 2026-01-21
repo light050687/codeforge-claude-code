@@ -50,6 +50,7 @@ class SolutionResponse(SolutionBase):
 
     id: UUID
     problem_id: UUID
+    problem_slug: str | None = None  # For routing to problem page
     author: AuthorBrief | None = None
 
     # Speed metrics

@@ -166,7 +166,7 @@ export default function Explore() {
             : trendingSolutions?.map((solution, index) => (
                 <Link
                   key={solution.id}
-                  to={`/problem/${solution.problem_id}`}
+                  to={`/problem/${solution.problem_slug || solution.problem_id}`}
                 >
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}

@@ -120,3 +120,8 @@ class Solution(Base):
     author = relationship("User", back_populates="solutions")
     benchmarks = relationship("Benchmark", back_populates="solution")
     votes = relationship("Vote", back_populates="solution")
+
+    @property
+    def problem_slug(self) -> str | None:
+        """Get the slug of the associated problem for routing."""
+        return self.problem.slug if self.problem else None

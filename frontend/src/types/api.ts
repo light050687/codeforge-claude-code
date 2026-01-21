@@ -110,6 +110,7 @@ export interface ProblemList {
 export interface SolutionResponse {
   id: string
   problem_id: string
+  problem_slug: string | null  // For routing to problem page
   title: string
   code: string
   language: string
@@ -177,6 +178,7 @@ export interface SearchResultItem {
   vote_count: number
   author_username: string
   problem_id: string
+  problem_slug: string  // For routing to problem page
   problem_title: string
   problem_category: string
   similarity_score: number | null

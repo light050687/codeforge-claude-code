@@ -141,7 +141,7 @@ export default function UserProfile() {
                 transition={{ delay: Math.min(index * 0.02, 0.25) }}
               >
                 <Link
-                  to={`/problem/${solution.problem_id}`}
+                  to={`/problem/${solution.problem_slug || solution.problem_id}`}
                   className="block bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-accent-primary/50 transition-colors"
                 >
                   <div className="flex items-start justify-between mb-2">

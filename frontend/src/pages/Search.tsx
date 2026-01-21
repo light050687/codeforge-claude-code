@@ -201,7 +201,7 @@ export default function Search() {
                   <p className="text-sm text-text-muted">
                     Problem:{' '}
                     <Link
-                      to={`/problem/${result.problem_id}`}
+                      to={`/problem/${result.problem_slug}`}
                       className="text-accent-primary hover:underline"
                     >
                       {result.problem_title}

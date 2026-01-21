@@ -18,11 +18,13 @@ const sortOptions = [
 // Group solutions by problem
 function groupByProblem(items: SearchResultItem[]): Record<string, {
   problem_id: string
+  problem_slug: string
   problem_title: string
   solutions: SearchResultItem[]
 }> {
   const groups: Record<string, {
     problem_id: string
+    problem_slug: string
     problem_title: string
     solutions: SearchResultItem[]
   }> = {}
@@ -31,6 +33,7 @@ function groupByProblem(items: SearchResultItem[]): Record<string, {
     if (!groups[item.problem_id]) {
       groups[item.problem_id] = {
         problem_id: item.problem_id,
+        problem_slug: item.problem_slug,
         problem_title: item.problem_title,
         solutions: [],
       }
@@ -216,7 +219,7 @@ export default function Category() {
                   </div>
                 </div>
                 <Link
-                  to={`/problem/${group.problem_id}`}
+                  to={`/problem/${group.problem_slug}`}
                   onClick={(e) => e.stopPropagation()}
                   className="px-3 py-1 text-sm bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-colors"
                 >

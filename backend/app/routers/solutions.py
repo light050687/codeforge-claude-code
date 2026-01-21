@@ -137,7 +137,7 @@ async def list_solutions(
     db: AsyncSession = Depends(get_db),
 ):
     """List solutions with pagination and filters."""
-    query = select(Solution).options(joinedload(Solution.author))
+    query = select(Solution).options(joinedload(Solution.author), joinedload(Solution.problem))
 
     if problem_id:
         query = query.where(Solution.problem_id == problem_id)
@@ -192,7 +192,7 @@ async def get_solution(solution_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get a specific solution by ID."""
     result = await db.execute(
         select(Solution)
-        .options(joinedload(Solution.author))
+        .options(joinedload(Solution.author), joinedload(Solution.problem))
         .where(Solution.id == solution_id)
     )
     solution = result.scalar_one_or_none()

@@ -71,6 +71,7 @@ async def semantic_search(
             s.created_at,
             COALESCE(u.username, 'anonymous') as author_username,
             p.id as problem_id,
+            p.slug as problem_slug,
             p.title as problem_title,
             p.category as problem_category,
             1 - (s.embedding <=> :embedding) as embedding_sim,
@@ -158,6 +159,7 @@ async def semantic_search(
             vote_count=row.vote_count,
             author_username=row.author_username,
             problem_id=str(row.problem_id),
+            problem_slug=row.problem_slug,
             problem_title=row.problem_title,
             problem_category=row.problem_category,
             similarity_score=round(final_score, 3),  # Return hybrid score
@@ -231,6 +233,7 @@ async def search_by_category(
             s.created_at,
             COALESCE(u.username, 'anonymous') as author_username,
             p.id as problem_id,
+            p.slug as problem_slug,
             p.title as problem_title,
             p.category as problem_category
         FROM solutions s
@@ -285,6 +288,7 @@ async def search_by_category(
             vote_count=row.vote_count,
             author_username=row.author_username,
             problem_id=str(row.problem_id),
+            problem_slug=row.problem_slug,
             problem_title=row.problem_title,
             problem_category=row.problem_category,
             similarity_score=None,
