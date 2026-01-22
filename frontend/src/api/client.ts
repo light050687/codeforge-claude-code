@@ -66,15 +66,40 @@ export const usersApi = {
   get: (id: string) => api.get(`/users/${id}`),
   getByUsername: (username: string) => api.get(`/users/username/${username}`),
   topUsers: (limit?: number) => api.get('/users/leaderboard/top', { params: { limit } }),
+  updateMe: (data: { email?: string; avatar_url?: string }) =>
+    api.patch('/users/me', data),
+  getMyStats: () => api.get('/users/me/stats'),
 }
 
 export const benchmarksApi = {
   getSolutionBenchmarks: (solutionId: string) =>
     api.get(`/benchmarks/solution/${solutionId}`),
-  compare: (solutionIds: string[]) =>
-    api.get('/benchmarks/compare', { params: { solution_ids: solutionIds.join(',') } }),
+  compare: (solutionIds: string[], includeSolutions = false) =>
+    api.get('/benchmarks/compare', {
+      params: {
+        solution_ids: solutionIds.join(','),
+        include_solutions: includeSolutions
+      }
+    }),
   run: (solutionId: string, inputSizes?: number[]) =>
     api.post('/benchmarks/run', { solution_id: solutionId, input_sizes: inputSizes }),
+  runAsync: (solutionId: string, inputSizes?: number[]) =>
+    api.post('/benchmarks/run/async', { solution_id: solutionId, input_sizes: inputSizes }),
+  getTaskStatus: (taskId: string) =>
+    api.get(`/benchmarks/task/${taskId}`),
+}
+
+export const commentsApi = {
+  getForSolution: (solutionId: string, page = 1, size = 20) =>
+    api.get(`/comments/solution/${solutionId}`, { params: { page, size } }),
+  create: (solutionId: string, content: string, parentId?: string) =>
+    api.post('/comments', { solution_id: solutionId, content, parent_id: parentId }),
+  update: (commentId: string, content: string) =>
+    api.patch(`/comments/${commentId}`, { content }),
+  delete: (commentId: string) =>
+    api.delete(`/comments/${commentId}`),
+  vote: (commentId: string, value: number) =>
+    api.post(`/comments/${commentId}/vote`, null, { params: { value } }),
 }
 
 export const playgroundApi = {

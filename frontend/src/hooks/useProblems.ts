@@ -40,3 +40,28 @@ export function useProblemBySlug(slug: string | null) {
     enabled: slug !== null,
   })
 }
+
+// Helper to detect if a string is a UUID
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Smart hook that fetches problem by either UUID or slug
+ * Automatically detects the format and uses the appropriate API
+ */
+export function useProblemByIdOrSlug(idOrSlug: string | null) {
+  const isUUID = idOrSlug ? UUID_REGEX.test(idOrSlug) : false
+
+  return useQuery<ProblemResponse>({
+    queryKey: ['problem', isUUID ? 'id' : 'slug', idOrSlug],
+    queryFn: async () => {
+      if (isUUID) {
+        const response = await problemsApi.get(idOrSlug!)
+        return response.data
+      } else {
+        const response = await problemsApi.getBySlug(idOrSlug!)
+        return response.data
+      }
+    },
+    enabled: idOrSlug !== null,
+  })
+}

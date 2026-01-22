@@ -1,7 +1,7 @@
 import math
 import re
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from sqlalchemy.orm import joinedload
@@ -11,6 +11,7 @@ from app.models.solution import Solution
 from app.models.problem import Problem
 from app.schemas.search import SearchQuery, SearchResult, SearchResultItem
 from app.services.embeddings import get_embedding, translate_query
+from app.limiter import limiter
 
 
 # Common stop words to filter out when extracting keywords
@@ -32,7 +33,9 @@ router = APIRouter()
 
 
 @router.post("/", response_model=SearchResult)
+@limiter.limit("30/minute")
 async def semantic_search(
+    request: Request,
     query: SearchQuery,
     db: AsyncSession = Depends(get_db),
 ):

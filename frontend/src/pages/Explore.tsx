@@ -15,6 +15,7 @@ export default function Explore() {
   // Fetch data
   const { data: trendingSolutions, isLoading: loadingTrending } =
     useTrendingSolutions(3)
+
   const { data: problemsData, isLoading: loadingProblems } = useProblems({
     size: 20,
   })

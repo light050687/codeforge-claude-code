@@ -60,6 +60,14 @@ class Solution(Base):
     code: Mapped[str] = mapped_column(Text)
     language: Mapped[str] = mapped_column(language_type, index=True)
 
+    # Versioning
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    parent_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("solutions.id", ondelete="SET NULL"),
+        nullable=True, index=True
+    )
+    version_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Complexity (theoretical)
     complexity_time: Mapped[str | None] = mapped_column(String(50), nullable=True)
     complexity_space: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -120,6 +128,7 @@ class Solution(Base):
     author = relationship("User", back_populates="solutions")
     benchmarks = relationship("Benchmark", back_populates="solution")
     votes = relationship("Vote", back_populates="solution")
+    comments = relationship("SolutionComment", back_populates="solution", cascade="all, delete-orphan")
 
     @property
     def problem_slug(self) -> str | None:

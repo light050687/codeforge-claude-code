@@ -2,7 +2,7 @@ import re
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from sqlalchemy.orm import joinedload
@@ -11,6 +11,11 @@ from app.database import get_db
 from app.models.solution import Solution
 from app.models.problem import Problem
 from app.schemas.solution import SolutionCreate, SolutionResponse, SolutionList
+from app.limiter import limiter
+from app.services.benchmark_runner import calculate_readability_score, extract_dependencies
+from app.utils.jwt import get_current_user
+from app.utils.github import create_gist, GitHubOAuthError
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +209,9 @@ async def get_solution(solution_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=SolutionResponse)
+@limiter.limit("10/minute")
 async def create_solution(
+    request: Request,
     solution: SolutionCreate,
     db: AsyncSession = Depends(get_db),
 ):
@@ -236,6 +243,10 @@ async def create_solution(
     # TODO: Get current user from auth
     author_id = None  # Anonymous for now
 
+    # Calculate code quality metrics
+    readability, loc, complexity = calculate_readability_score(solution.code)
+    deps, has_external = extract_dependencies(solution.code)
+
     db_solution = Solution(
         problem_id=problem_uuid,
         author_id=author_id,
@@ -245,6 +256,12 @@ async def create_solution(
         language=solution.language,
         complexity_time=solution.complexity_time,
         complexity_space=solution.complexity_space,
+        # Code quality metrics
+        readability_score=readability,
+        lines_of_code=loc,
+        cyclomatic_complexity=complexity,
+        dependencies=deps,
+        has_external_deps=has_external,
     )
 
     db.add(db_solution)
@@ -274,3 +291,193 @@ async def vote_solution(
     await db.commit()
 
     return {"vote_count": solution.vote_count}
+
+
+@router.get("/{solution_id}/versions", response_model=list[SolutionResponse])
+async def get_solution_versions(
+    solution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all versions of a solution (including the original and all derived versions)."""
+    # Find the root solution
+    result = await db.execute(
+        select(Solution)
+        .options(joinedload(Solution.author), joinedload(Solution.problem))
+        .where(Solution.id == solution_id)
+    )
+    solution = result.scalar_one_or_none()
+
+    if not solution:
+        raise HTTPException(status_code=404, detail="Solution not found")
+
+    # Find root by traversing up the parent chain
+    root_id = solution_id
+    current = solution
+    while current.parent_version_id:
+        root_id = current.parent_version_id
+        result = await db.execute(select(Solution).where(Solution.id == root_id))
+        current = result.scalar_one_or_none()
+        if not current:
+            break
+
+    # Get all versions (root + all descendants)
+    result = await db.execute(
+        select(Solution)
+        .options(joinedload(Solution.author), joinedload(Solution.problem))
+        .where(
+            (Solution.id == root_id) |
+            (Solution.parent_version_id == root_id)
+        )
+        .order_by(Solution.version)
+    )
+    versions = result.scalars().unique().all()
+
+    return versions
+
+
+@router.post("/{solution_id}/new-version", response_model=SolutionResponse)
+async def create_new_version(
+    solution_id: UUID,
+    code: str = Query(..., description="New code for this version"),
+    version_notes: str = Query(None, description="Notes about changes in this version"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new version of an existing solution."""
+    result = await db.execute(
+        select(Solution)
+        .options(joinedload(Solution.problem))
+        .where(Solution.id == solution_id)
+    )
+    parent = result.scalar_one_or_none()
+
+    if not parent:
+        raise HTTPException(status_code=404, detail="Solution not found")
+
+    # Find max version in this version chain
+    root_id = solution_id
+    current = parent
+    while current.parent_version_id:
+        root_id = current.parent_version_id
+        result = await db.execute(select(Solution).where(Solution.id == root_id))
+        current = result.scalar_one_or_none()
+        if not current:
+            break
+
+    result = await db.execute(
+        select(func.max(Solution.version))
+        .where(
+            (Solution.id == root_id) |
+            (Solution.parent_version_id == root_id)
+        )
+    )
+    max_version = result.scalar() or parent.version
+
+    # Calculate quality metrics for new version
+    readability, loc, complexity = calculate_readability_score(code)
+    deps, has_external = extract_dependencies(code)
+
+    # Create new version
+    db_solution = Solution(
+        problem_id=parent.problem_id,
+        author_id=parent.author_id,
+        parent_version_id=root_id,  # Always point to root
+        version=max_version + 1,
+        version_notes=version_notes,
+        title=parent.title,
+        description=parent.description,
+        code=code,
+        language=parent.language,
+        complexity_time=parent.complexity_time,
+        complexity_space=parent.complexity_space,
+        readability_score=readability,
+        lines_of_code=loc,
+        cyclomatic_complexity=complexity,
+        dependencies=deps,
+        has_external_deps=has_external,
+    )
+
+    db.add(db_solution)
+    await db.commit()
+    await db.refresh(db_solution, ["author", "problem"])
+
+    logger.info(f"Created version {db_solution.version} of solution {root_id}")
+
+    return db_solution
+
+
+# File extension mapping for gist
+LANGUAGE_EXTENSIONS = {
+    "python": "py",
+    "javascript": "js",
+    "typescript": "ts",
+    "go": "go",
+    "rust": "rs",
+    "java": "java",
+    "c++": "cpp",
+    "c": "c",
+}
+
+
+@router.post("/{solution_id}/export-gist")
+async def export_to_gist(
+    solution_id: UUID,
+    public: bool = Query(True, description="Whether the gist is public"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Export a solution to GitHub Gist.
+    Requires the user to be authenticated with GitHub.
+    """
+    # Check if user has GitHub token
+    if not current_user.github_access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="GitHub access token not found. Please re-authenticate with GitHub."
+        )
+
+    # Get solution
+    result = await db.execute(
+        select(Solution)
+        .options(joinedload(Solution.problem))
+        .where(Solution.id == solution_id)
+    )
+    solution = result.scalar_one_or_none()
+
+    if not solution:
+        raise HTTPException(status_code=404, detail="Solution not found")
+
+    # Prepare filename
+    ext = LANGUAGE_EXTENSIONS.get(solution.language.lower(), "txt")
+    filename = f"{solution.title.lower().replace(' ', '_')}.{ext}"
+
+    # Prepare description
+    description = f"CodeForge: {solution.title}"
+    if solution.speedup:
+        description += f" - {solution.speedup}x speedup"
+    if solution.problem:
+        description += f" | Problem: {solution.problem.title}"
+
+    try:
+        gist = await create_gist(
+            access_token=current_user.github_access_token,
+            filename=filename,
+            content=solution.code,
+            description=description,
+            public=public,
+        )
+
+        logger.info(f"User {current_user.username} exported solution {solution_id} to gist {gist.id}")
+
+        return {
+            "gist_id": gist.id,
+            "url": gist.html_url,
+            "raw_url": gist.raw_url,
+        }
+
+    except GitHubOAuthError as e:
+        logger.error(f"Failed to create gist: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create gist: {str(e)}"
+        )

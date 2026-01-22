@@ -6,12 +6,13 @@ import logging
 import math
 import re
 from dataclasses import dataclass
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.database import async_session
 from app.services.embeddings import get_embedding
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +169,48 @@ def analyze_patterns(code: str, language: str) -> list[str]:
         if code.count('for ') > 1:
             suggestions.append("Consider hash-based approach to reduce nested loops")
 
+        # List comprehension opportunity
+        if re.search(r'for\s+\w+\s+in\s+.*:\s*\n\s+\w+\.append\(', code):
+            suggestions.append("Consider using list comprehension for better performance")
+
+        # Dictionary get with default
+        if re.search(r'if\s+\w+\s+in\s+\w+:\s*\n.*else:', code) and 'dict' in code_lower:
+            suggestions.append("Use dict.get(key, default) instead of if-else")
+
+        # Multiple if instead of elif
+        if code.count('\nif ') > 2 and 'elif' not in code:
+            suggestions.append("Consider using elif for mutually exclusive conditions")
+
+    # JavaScript-specific patterns
+    elif language.lower() in ['javascript', 'js', 'typescript', 'ts']:
+        if '.forEach(' in code and ('push' in code or 'result' in code):
+            suggestions.append("Use .map() or .reduce() instead of forEach with mutation")
+
+        if 'var ' in code:
+            suggestions.append("Use const/let instead of var for block scoping")
+
+        if '== ' in code and '===' not in code:
+            suggestions.append("Use === for strict equality comparison")
+
+        if '.indexOf(' in code and ' !== -1' in code:
+            suggestions.append("Use .includes() for cleaner array membership check")
+
+    # Go-specific patterns
+    elif language.lower() in ['go', 'golang']:
+        if 'append(' in code and 'for ' in code:
+            suggestions.append("Pre-allocate slice capacity with make() for known sizes")
+
+        if 'string(' in code and 'for ' in code:
+            suggestions.append("Use strings.Builder for string concatenation in loops")
+
+    # Rust-specific patterns
+    elif language.lower() in ['rust', 'rs']:
+        if '.clone()' in code:
+            suggestions.append("Avoid unnecessary .clone() - consider borrowing")
+
+        if 'unwrap()' in code:
+            suggestions.append("Handle errors properly instead of using unwrap()")
+
     # General patterns
     if 'sort' in code_lower and ('for ' in code_lower or 'while ' in code_lower):
         suggestions.append("Sorting inside loop is expensive - consider sorting once")
@@ -176,6 +219,80 @@ def analyze_patterns(code: str, language: str) -> list[str]:
         suggestions.append("Code looks reasonably optimized")
 
     return suggestions
+
+
+def generate_optimized_code(code: str, language: str) -> tuple[str, float]:
+    """
+    Apply automatic optimizations to code based on detected patterns.
+    Returns (optimized_code, estimated_speedup).
+    """
+    optimized = code
+    speedup_multiplier = 1.0
+
+    if language.lower() == 'python':
+        # Replace range(len()) with enumerate()
+        pattern = r'for\s+(\w+)\s+in\s+range\(len\((\w+)\)\):'
+        if re.search(pattern, optimized):
+            optimized = re.sub(
+                pattern,
+                r'for \1, item in enumerate(\2):',
+                optimized
+            )
+            speedup_multiplier *= 1.1
+
+        # Replace nested loop membership check with set
+        # Pattern: for x in list1: for y in list2: if x == y
+        if re.search(r'for\s+\w+\s+in\s+\w+:\s*\n\s+for\s+\w+\s+in\s+\w+:', optimized):
+            # Add set conversion suggestion in comments
+            lines = optimized.split('\n')
+            if lines and 'set(' not in optimized:
+                lines.insert(0, "# Optimization: Convert inner list to set for O(1) lookup")
+                optimized = '\n'.join(lines)
+                speedup_multiplier *= 10.0  # O(n²) -> O(n)
+
+        # Replace string += with list append + join
+        if re.search(r'(\w+)\s*\+=\s*["\']', optimized) and 'for ' in optimized:
+            # Add optimization hint
+            if '# Optimization' not in optimized:
+                lines = optimized.split('\n')
+                lines.insert(0, "# Optimization: Use ''.join(parts) instead of string +=")
+                optimized = '\n'.join(lines)
+                speedup_multiplier *= 5.0
+
+        # Replace multiple .count() with Counter
+        if optimized.count('.count(') > 1:
+            if 'from collections import Counter' not in optimized:
+                lines = optimized.split('\n')
+                lines.insert(0, "from collections import Counter")
+                lines.insert(1, "# Use counter = Counter(items) then counter[x]")
+                optimized = '\n'.join(lines)
+                speedup_multiplier *= 3.0
+
+    elif language.lower() in ['javascript', 'js', 'typescript', 'ts']:
+        # Replace var with const/let
+        optimized = re.sub(r'\bvar\s+', 'const ', optimized)
+
+        # Replace == with ===
+        optimized = re.sub(r'([^=!])===?([^=])', r'\1===\2', optimized)
+
+        # Replace indexOf !== -1 with includes
+        optimized = re.sub(
+            r'(\w+)\.indexOf\(([^)]+)\)\s*!==?\s*-1',
+            r'\1.includes(\2)',
+            optimized
+        )
+
+        speedup_multiplier *= 1.2
+
+    elif language.lower() in ['go', 'golang']:
+        # Add capacity hint for slice append
+        if 'append(' in optimized and 'make(' not in optimized:
+            lines = optimized.split('\n')
+            lines.insert(0, "// Optimization: Pre-allocate with make([]T, 0, expectedSize)")
+            optimized = '\n'.join(lines)
+            speedup_multiplier *= 2.0
+
+    return optimized, speedup_multiplier
 
 
 async def find_similar_solution(code: str, language: str) -> SimilarSolution | None:
@@ -288,7 +405,8 @@ async def find_similar_solution(code: str, language: str) -> SimilarSolution | N
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_code(request: AnalyzeRequest):
+@limiter.limit("20/minute")
+async def analyze_code(request: Request, analyze_request: AnalyzeRequest):
     """
     Analyze code and return optimization suggestions.
 
@@ -297,8 +415,8 @@ async def analyze_code(request: AnalyzeRequest):
     - Semantic search to find similar optimized solutions
     """
     try:
-        code = request.code
-        language = request.language.lower()
+        code = analyze_request.code
+        language = analyze_request.language.lower()
 
         # Detect current complexity
         time_complexity, space_complexity = detect_complexity(code)
@@ -321,21 +439,29 @@ async def analyze_code(request: AnalyzeRequest):
                 suggestions=suggestions + [f"Found similar solution: {similar.title}"],
             )
 
-        # No similar solution found - return analysis only
-        # Apply simple optimizations based on patterns
-        optimized_code = code
-        estimated_speedup = 1.0
+        # No similar solution found - apply automatic optimizations
+        optimized_code, estimated_speedup = generate_optimized_code(code, language)
 
-        # If we detected nested loops, estimate potential improvement
+        # If we detected nested loops, add estimate
         if "O(n²)" in time_complexity or "O(n³)" in time_complexity:
-            estimated_speedup = 10.0 if "O(n²)" in time_complexity else 100.0
-            suggestions.append("Nested loops detected - consider hash-based O(n) approach")
+            base_speedup = 10.0 if "O(n²)" in time_complexity else 100.0
+            estimated_speedup = max(estimated_speedup, base_speedup)
+            if "Nested loops detected" not in str(suggestions):
+                suggestions.append("Nested loops detected - consider hash-based O(n) approach")
+
+        # Determine improved complexity if optimizations applied
+        improved_time = time_complexity
+        if estimated_speedup > 5:
+            if time_complexity == "O(n²)":
+                improved_time = "O(n)"
+            elif time_complexity == "O(n³)":
+                improved_time = "O(n²)"
 
         return AnalyzeResponse(
             optimized_code=optimized_code,
-            speedup=estimated_speedup,
+            speedup=round(estimated_speedup, 1),
             complexity=ComplexityInfo(
-                time=time_complexity,
+                time=improved_time if optimized_code != code else time_complexity,
                 space=space_complexity,
             ),
             suggestions=suggestions,

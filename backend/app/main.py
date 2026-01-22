@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
-from app.routers import auth, problems, solutions, search, benchmarks, users, playground
+from app.routers import auth, problems, solutions, search, benchmarks, users, playground, comments, analytics
+from app.limiter import limiter
 
 settings = get_settings()
 
@@ -43,6 +45,10 @@ app = FastAPI(
     redirect_slashes=False,  # Disable automatic 307 redirects for trailing slashes
 )
 
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +69,8 @@ app.include_router(search.router, prefix=f"{settings.api_prefix}/search", tags=[
 app.include_router(benchmarks.router, prefix=f"{settings.api_prefix}/benchmarks", tags=["benchmarks"])
 app.include_router(users.router, prefix=f"{settings.api_prefix}/users", tags=["users"])
 app.include_router(playground.router, prefix=f"{settings.api_prefix}/playground", tags=["playground"])
+app.include_router(comments.router, prefix=f"{settings.api_prefix}/comments", tags=["comments"])
+app.include_router(analytics.router, prefix=f"{settings.api_prefix}/analytics", tags=["analytics"])
 
 
 @app.on_event("startup")

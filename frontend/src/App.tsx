@@ -12,6 +12,7 @@ const Problem = lazy(() => import('./pages/Problem'))
 const Category = lazy(() => import('./pages/Category'))
 const AuthCallback = lazy(() => import('./pages/AuthCallback'))
 const UserProfile = lazy(() => import('./pages/UserProfile'))
+const Compare = lazy(() => import('./pages/Compare'))
 
 // Lightweight loading fallback
 function PageLoader() {
@@ -35,6 +36,7 @@ function App() {
             <Route path="problem/:problemId" element={<Problem />} />
             <Route path="category/:categoryId" element={<Category />} />
             <Route path="user/:username" element={<UserProfile />} />
+            <Route path="compare" element={<Compare />} />
           </Route>
           <Route path="/auth/callback" element={<AuthCallback />} />
         </Routes>

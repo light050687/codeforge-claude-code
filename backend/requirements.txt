@@ -25,6 +25,9 @@ httpx==0.28.0
 redis==5.2.0
 celery==5.4.0
 
+# Rate Limiting
+slowapi==0.1.9
+
 # Utils
 python-multipart==0.0.17
 python-dotenv==1.0.1

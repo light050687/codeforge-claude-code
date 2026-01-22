@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useProblemBySlug } from '../hooks/useProblems'
+import { useProblemByIdOrSlug } from '../hooks/useProblems'
 import { useSolutions } from '../hooks/useSolutions'
 import { useRunBenchmark, type RunBenchmarkResult } from '../hooks/useBenchmarks'
 import { CATEGORY_META, type Difficulty, type SolutionBadge } from '../types/api'
@@ -86,7 +86,7 @@ export default function Problem() {
     data: problem,
     isLoading: loadingProblem,
     error: problemError,
-  } = useProblemBySlug(problemSlug || null)
+  } = useProblemByIdOrSlug(problemSlug || null)
 
   const {
     data: solutionsData,

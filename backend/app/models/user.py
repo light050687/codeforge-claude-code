@@ -18,6 +18,7 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
     oauth_provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
     oauth_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    github_access_token: Mapped[str | None] = mapped_column(String(255), nullable=True)  # For Gist export
     score: Mapped[int] = mapped_column(Integer, default=0)
     solutions_count: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -31,3 +32,4 @@ class User(Base):
     # Relationships
     solutions = relationship("Solution", back_populates="author")
     votes = relationship("Vote", back_populates="user")
+    comments = relationship("SolutionComment", back_populates="author")

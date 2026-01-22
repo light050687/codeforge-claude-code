@@ -122,3 +122,66 @@ async def get_github_user(access_token: str) -> GitHubUser:
             avatar_url=user_data.get("avatar_url"),
             name=user_data.get("name"),
         )
+
+
+class GistResponse(BaseModel):
+    """Response from GitHub Gist API."""
+    id: str
+    html_url: str
+    raw_url: str
+
+
+async def create_gist(
+    access_token: str,
+    filename: str,
+    content: str,
+    description: str = "",
+    public: bool = True,
+) -> GistResponse:
+    """
+    Create a GitHub Gist.
+
+    Args:
+        access_token: GitHub OAuth access token with gist scope
+        filename: Name of the file in the gist
+        content: Content of the file
+        description: Description of the gist
+        public: Whether the gist is public (default True)
+
+    Returns:
+        GistResponse with gist URLs
+
+    Raises:
+        GitHubOAuthError: If gist creation fails
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.github.com/gists",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github+json",
+            },
+            json={
+                "description": description,
+                "public": public,
+                "files": {
+                    filename: {"content": content}
+                }
+            }
+        )
+
+        if response.status_code != 201:
+            raise GitHubOAuthError(f"Failed to create gist: {response.text}")
+
+        data = response.json()
+
+        # Get raw URL of the file
+        raw_url = ""
+        if data.get("files") and filename in data["files"]:
+            raw_url = data["files"][filename].get("raw_url", "")
+
+        return GistResponse(
+            id=data["id"],
+            html_url=data["html_url"],
+            raw_url=raw_url
+        )

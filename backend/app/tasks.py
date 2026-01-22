@@ -41,48 +41,108 @@ def generate_embedding(self, code: str, language: str = "python") -> list[float]
 @celery_app.task(bind=True, max_retries=2)
 def run_benchmark(
     self,
-    solution_id: int,
+    solution_id: str,
     code: str,
+    baseline_code: str,
     language: str = "python",
-    iterations: int = 100
+    input_sizes: list[int] = None
 ) -> dict:
     """
-    Run performance benchmark for a solution.
+    Run performance benchmark for a solution against baseline.
 
     Args:
-        solution_id: ID of the solution to benchmark
-        code: Source code to benchmark
+        solution_id: UUID of the solution to benchmark
+        code: Solution source code
+        baseline_code: Baseline code to compare against
         language: Programming language
-        iterations: Number of benchmark iterations
+        input_sizes: List of input sizes to test
 
     Returns:
-        Benchmark results dict with timing stats
+        Benchmark results dict with comparison stats
     """
     try:
-        import time
-        import statistics
+        import asyncio
+        from app.services.benchmark import (
+            run_benchmark_for_language,
+            extract_function_name,
+            is_language_supported,
+            DEFAULT_INPUT_SIZES
+        )
 
-        # Placeholder benchmark - in production this would run in a sandbox
-        times = []
-        for _ in range(min(iterations, 10)):  # Limited for safety
-            start = time.perf_counter()
-            # Simulated execution time
-            time.sleep(0.001)
-            end = time.perf_counter()
-            times.append((end - start) * 1000)  # Convert to ms
+        if not is_language_supported(language):
+            return {
+                "solution_id": solution_id,
+                "success": False,
+                "error": f"Language {language} not supported for benchmarking"
+            }
+
+        sizes = input_sizes or DEFAULT_INPUT_SIZES
+
+        # Extract function names
+        baseline_func = extract_function_name(baseline_code, language)
+        solution_func = extract_function_name(code, language)
+
+        if not baseline_func or not solution_func:
+            return {
+                "solution_id": solution_id,
+                "success": False,
+                "error": "Could not extract function names from code"
+            }
+
+        # Run benchmarks
+        loop = asyncio.new_event_loop()
+        results = []
+
+        try:
+            for size in sizes:
+                baseline_result = loop.run_until_complete(
+                    run_benchmark_for_language(baseline_code, baseline_func, size, language)
+                )
+                solution_result = loop.run_until_complete(
+                    run_benchmark_for_language(code, solution_func, size, language)
+                )
+
+                if baseline_result.success and solution_result.success:
+                    speedup = (
+                        baseline_result.execution_time_ms / solution_result.execution_time_ms
+                        if solution_result.execution_time_ms > 0
+                        else 1.0
+                    )
+                    results.append({
+                        "input_size": size,
+                        "baseline_time_ms": round(baseline_result.execution_time_ms, 3),
+                        "solution_time_ms": round(solution_result.execution_time_ms, 3),
+                        "speedup": round(speedup, 2),
+                        "baseline_memory": baseline_result.memory_bytes,
+                        "solution_memory": solution_result.memory_bytes,
+                    })
+                else:
+                    logger.warning(
+                        f"Benchmark failed for size {size}: "
+                        f"baseline={baseline_result.error}, solution={solution_result.error}"
+                    )
+        finally:
+            loop.close()
+
+        if not results:
+            return {
+                "solution_id": solution_id,
+                "success": False,
+                "error": "All benchmark runs failed"
+            }
+
+        # Calculate average speedup
+        avg_speedup = sum(r["speedup"] for r in results) / len(results)
 
         result = {
             "solution_id": solution_id,
             "language": language,
-            "iterations": len(times),
-            "mean_ms": statistics.mean(times),
-            "median_ms": statistics.median(times),
-            "std_dev_ms": statistics.stdev(times) if len(times) > 1 else 0,
-            "min_ms": min(times),
-            "max_ms": max(times),
+            "success": True,
+            "results": results,
+            "average_speedup": round(avg_speedup, 2),
         }
 
-        logger.info(f"Benchmark completed for solution {solution_id}: {result['mean_ms']:.2f}ms")
+        logger.info(f"Benchmark completed for solution {solution_id}: {avg_speedup:.2f}x speedup")
         return result
 
     except Exception as exc:
