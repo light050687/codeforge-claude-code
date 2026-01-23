@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: codeforge
       POSTGRES_USER: codeforge
-      POSTGRES_PASSWORD: codeforge_dev_password
+      POSTGRES_PASSWORD: codeforge
     ports:
       - "5432:5432"
     volumes:
@@ -44,7 +44,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://codeforge:codeforge_dev_password@postgres:5432/codeforge
+      DATABASE_URL: postgresql+asyncpg://codeforge:codeforge@postgres:5432/codeforge
       REDIS_URL: redis://redis:6379
       DEBUG: "true"
       CORS_ORIGINS: '["http://localhost:3000", "http://localhost:5173"]'
@@ -84,7 +84,7 @@ services:
       dockerfile: Dockerfile
     container_name: codeforge-worker
     environment:
-      DATABASE_URL: postgresql+asyncpg://codeforge:codeforge_dev_password@postgres:5432/codeforge
+      DATABASE_URL: postgresql+asyncpg://codeforge:codeforge@postgres:5432/codeforge
       REDIS_URL: redis://redis:6379
     volumes:
       - ./backend:/app

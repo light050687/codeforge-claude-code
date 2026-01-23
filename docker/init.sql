@@ -26,6 +26,7 @@ CREATE TABLE users (
     avatar_url TEXT,
     oauth_provider VARCHAR(20),
     oauth_id VARCHAR(255),
+    github_access_token VARCHAR(255),
     score INTEGER DEFAULT 0,
     solutions_count INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -66,6 +67,19 @@ CREATE TABLE solutions (
     is_verified BOOLEAN DEFAULT FALSE,
     vote_count INTEGER DEFAULT 0,
     speedup FLOAT,
+    -- Versioning
+    version INTEGER DEFAULT 1,
+    parent_version_id UUID REFERENCES solutions(id) ON DELETE SET NULL,
+    version_notes TEXT,
+    -- Code quality metrics
+    memory_reduction FLOAT,
+    efficiency_score FLOAT,
+    readability_score FLOAT,
+    lines_of_code INTEGER,
+    cyclomatic_complexity INTEGER,
+    dependencies TEXT[] DEFAULT '{}',
+    has_external_deps BOOLEAN DEFAULT FALSE,
+    badges TEXT[] DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -93,6 +107,39 @@ CREATE TABLE votes (
     UNIQUE(user_id, solution_id)
 );
 
+-- Solution comments table
+CREATE TABLE solution_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    solution_id UUID NOT NULL REFERENCES solutions(id) ON DELETE CASCADE,
+    author_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    parent_id UUID REFERENCES solution_comments(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    upvotes INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Analytics: Page views
+CREATE TABLE page_views (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    path VARCHAR(500) NOT NULL,
+    referrer VARCHAR(500),
+    user_agent TEXT,
+    ip_hash VARCHAR(64),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Analytics: Search queries
+CREATE TABLE search_queries (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    query TEXT NOT NULL,
+    results_count INTEGER DEFAULT 0,
+    filters JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Create indexes
 CREATE INDEX idx_solutions_embedding ON solutions 
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
@@ -108,6 +155,16 @@ CREATE INDEX idx_users_score ON users(score DESC);
 CREATE INDEX idx_problems_slug ON problems(slug);
 CREATE INDEX idx_problems_category ON problems(category);
 CREATE INDEX idx_problems_title_trgm ON problems USING gin(title gin_trgm_ops);
+
+-- Comments indexes
+CREATE INDEX idx_comments_solution ON solution_comments(solution_id);
+CREATE INDEX idx_comments_author ON solution_comments(author_id);
+CREATE INDEX idx_comments_parent ON solution_comments(parent_id);
+
+-- Analytics indexes
+CREATE INDEX idx_pageviews_path ON page_views(path);
+CREATE INDEX idx_pageviews_created ON page_views(created_at);
+CREATE INDEX idx_search_queries_created ON search_queries(created_at);
 
 -- Trigger to update search_vector
 CREATE OR REPLACE FUNCTION update_search_vector()

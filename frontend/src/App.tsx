@@ -30,6 +30,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Explore />} />
+            <Route path="explore" element={<Explore />} />
             <Route path="search" element={<Search />} />
             <Route path="leaderboard" element={<Leaderboard />} />
             <Route path="playground" element={<Playground />} />

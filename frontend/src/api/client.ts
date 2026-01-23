@@ -22,7 +22,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      // Don't redirect - let the app handle unauthenticated state gracefully
     }
     // Extract error message from FastAPI response
     const message =
